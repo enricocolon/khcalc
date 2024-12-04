@@ -84,21 +84,57 @@ def pd_code(knotlike):
     else:
         return knotlike
 
+def sign(crossing):
+    '''
+    Input: a crossing [n, m, n+1, m+/-1] and the number of
+    edges in the
+    Output: sign of the crossing
+    '''
+    #this function does not check for valid crossings. proceed
+    #with caution.
+    [a,b,c,d] = crossing
 
-def pd_graph_better(knotlike):
+    if b - d in {1,-1}:
+        return b - d
+    else:
+        return (d-b)/abs(d-b) #cyclic returning
+#FIX NAMING CONVENTION: its KNOT to X, not PD to X.
+def pd_to_adj_list(knotlike):
     code = pd_code(knotlike)
+    pre_graph = dict()
     graph = dict()
-    for i in range(1,len(code)):
+    edges = []
+    for i in range(1,len(code)+1):
+        [a,b,c,d] = code[i-1]
+        signe = sign([a,b,c,d])
         graph[f'v_{i}'] = dict()
-    for vertex in code:
-        #first incoming vertex is definitely sent to itself.
-        #second incoming vertex is also sent to itself, but
-        #its location depends on the sign of the crossing.
-        #implement the modular sign-checker.
-        pass
+        if signe == 1:
+            pre_graph[f'v_{i}'] = {'inputs': [a,d], 'outputs': [c,b]}
+        elif signe == -1:
+            pre_graph[f'v_{i}'] = {'inputs': [a,b], 'outputs': [c,d]}
+    termini = dict()
+    for vertex in pre_graph.keys():
+        for edge in pre_graph[vertex]['inputs']:
+            termini[edge] = vertex
+    for vertex in pre_graph.keys():
+        for edge in pre_graph[vertex]['outputs']:
+            if termini[edge] not in graph[vertex].keys():
+                graph[vertex][termini[edge]] = [edge]
+            else:
+                graph[vertex][termini[edge]].append(edge)
+    return graph
 
+
+def pd_to_graph(knotlike):
+    code = pd_code(knotlike)
+    dicti = pd_to_adj_list(code)
+    graph = DiGraph(dicti, format='dict_of_dicts')
+    return graph
+
+#CURRENT ISSUE: how to handle GRAPH EMBEDDINGS when the
+#DIAGRAM IS NOT SIMPLE?????
     
-def pd_graph(knotlike):
+def pd_graph_depricated(knotlike):
     '''
     Input: PD code
     Output: Adjacency list with keys the vertices, labelled,
