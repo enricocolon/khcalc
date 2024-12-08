@@ -6,7 +6,7 @@ from sage.knots.knotinfo import KnotInfo as KnotInfo #this might not be standard
 #sage.knots.link.Link.new_method = new_method
 
 
-def resolution(knot, vertex):
+def resolution_depricated(knot, vertex):
     '''
     Input: A link (given as a Link object's PD code) and a vertex of the cube [0,1]^#crossings(L),
     represented by a string of A's and B's (representing 0 and 1 respectively) of
@@ -55,7 +55,7 @@ K = KnotInfo.K3_1
 tref = K.pd_notation()
 vertex = 'AAB'
 trefoil = Knot(tref)
-#print(resolution(trefoil, vertex))
+#print(resolution_depricated(trefoil, vertex))
 
  #another idea you should write down somewhere. can you just make a graph from the crossings and then take faces in some way?
         #A type: [a,b,c,d]->a=b,c=d
@@ -251,3 +251,61 @@ def get_resolution(pd_graph, word):
             continue
         else:
             pass
+
+
+def sign(crossing, edge_pairs):
+    '''
+    Input: Crossing [a,b,c,d]
+    edge_pairs: Set containing pairs b->d if b and d are not numerically sequential but close a loop.
+    Return: +/-1 the sign of the crossing.
+
+    Warning: this only works assuming the labels in your PD code are cyclic in each component.
+    THIS ALSO DOES NO CHECKS FOR VALIDITY.
+    '''
+
+    #cant do these until i check for hopf links
+    [a,b,c,d] = crossing
+    if (d,b) in edge_pairs:
+        return 1
+    elif (b,d) in edge_pairs:
+        return -1
+    elif d == b+1:
+        return -1
+    elif b == d+1:
+        return 1
+    else:
+        raise Exception(f'Error computing sign at crossing f{crossing}')
+
+
+def knot_to_ktg(knotlike):
+    '''
+    Input: Knot
+    Output: Knotted trivalent graph, where each +/- crossing is replaced by a +/-1/2-framed
+    edge, whose respective neighborhoods are the ingoing and outgoing crossings.
+    TK: elaborate
+    '''
+    code = pd_code(knotlike)
+    n_cross = len(code)
+    n_edge = 2**len(code) #you need to add support for vertex-less edges if extend to all ktgs
+    ktg = dict()
+    edge_pairs = set()
+    termini = dict()
+    for vert in code: #here I get the exceptional loops and edge termini.
+        [a,b,c,d] = vert
+        termini[vert[0]] = vert
+        ktg[f't_{vert}_out'] = dict()
+        ktg[f't_{vert}_in'] = dict()
+        ktg[f't_{vert}_in'][f't_{vert}_out'] = [f't_{vert}']
+        if c-a != 1:
+            edge_pairs.add((a,c))
+    print(edge_pairs)
+    dict_print(termini) #missing half!
+    for vert in code:
+        [a,b,c,d] = vert
+        signe = sign([a,b,c,d], edge_pairs)
+        ktg[f't_{vert}_out'][f't_{termini[c]}_in'] = [c]
+        if signe == 1:
+            ktg[f't_{vert}_out'][f't_{termini[b]}_in'] = [b]
+        elif signe == -1:
+            ktg[f't_{vert}_out'][f't_{termini[d]}_in'] = [d]
+    return ktg
