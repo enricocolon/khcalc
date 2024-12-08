@@ -289,17 +289,36 @@ def knot_to_ktg(knotlike):
     n_edge = 2**len(code) #you need to add support for vertex-less edges if extend to all ktgs
     ktg = dict()
     edge_pairs = set()
-    termini = dict()
     for vert in code: #here I get the exceptional loops and edge termini.
         [a,b,c,d] = vert
-        termini[vert[0]] = vert
+        edge_pairs.add((a,c))
+        if (b,d) not in edge_pairs and (d,b) not in edge_pairs:
+            if b == d+1:
+                edge_pairs.add((d,b))
+            if d == b+1:
+                edge_pairs.add((b,d))
+            if abs(b-d) != 1:
+                [m,n] = sorted([b,d])
+                edge_pairs.add((n,m))
+        if (b,d) in edge_pairs: #i think this is how you fix hopf
+            edge_pairs.add((b,d))
+        if (d,b) in edge_pairs:
+            edge_pairs.add((d,b))
+
         ktg[f't_{vert}_out'] = dict()
         ktg[f't_{vert}_in'] = dict()
         ktg[f't_{vert}_in'][f't_{vert}_out'] = [f't_{vert}']
-        if c-a != 1:
-            edge_pairs.add((a,c))
+
+    for vert in code:
+        [a,b,c,d] = vert
+        if (d,b) in edge_pairs and (b,d) in edge_pairs:
+            raise Exception('Meridional components are not yet supported.')
+        if (d,b) in edge_pairs:
+            continue
+        if (b,d) in edge_pairs: #elif? do i get hopf issues?
+            continue
+
     print(edge_pairs)
-    dict_print(termini) #missing half!
     for vert in code:
         [a,b,c,d] = vert
         signe = sign([a,b,c,d], edge_pairs)
@@ -309,3 +328,9 @@ def knot_to_ktg(knotlike):
         elif signe == -1:
             ktg[f't_{vert}_out'][f't_{termini[d]}_in'] = [d]
     return ktg
+#main takeaway: you probably need to code something that keeps track of which cycles
+#are knot components/ this will fix the missing half part. Something like "if they have"
+#intersection that would be like a 2-cycle, add it to the partition, otherwise record "gap" pairs
+
+def knot_to_ktg_new(knotlike):
+    code = pd_code(knotlike)
