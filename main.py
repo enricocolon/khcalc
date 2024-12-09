@@ -285,10 +285,10 @@ def knot_to_ktg(knotlike):
     TK: elaborate
     '''
     code = pd_code(knotlike)
-    n_cross = len(code)
-    n_edge = 2**len(code) #you need to add support for vertex-less edges if extend to all ktgs
     ktg = dict()
     edge_pairs = set()
+    signs = []
+    edge_orientations = {i:(None,None) for i in range(1,2*len(code)+1)}
     for vert in code: #here I get the exceptional loops and edge termini.
         [a,b,c,d] = vert
         edge_pairs.add((a,c))
@@ -301,9 +301,9 @@ def knot_to_ktg(knotlike):
                 [m,n] = sorted([b,d])
                 edge_pairs.add((n,m))
         if (b,d) in edge_pairs: #i think this is how you fix hopf
-            edge_pairs.add((b,d))
-        if (d,b) in edge_pairs:
             edge_pairs.add((d,b))
+        if (d,b) in edge_pairs:
+            edge_pairs.add((b,d))
 
         ktg[f't_{vert}_out'] = dict()
         ktg[f't_{vert}_in'] = dict()
@@ -311,12 +311,22 @@ def knot_to_ktg(knotlike):
 
     for vert in code:
         [a,b,c,d] = vert
-        if (d,b) in edge_pairs and (b,d) in edge_pairs:
+        edge_orientations[a][1] = vert
+        edge_orientations[c][0] = vert
+        if (d,b) in edge_pairs and (b,d) in edge_pairs: #continue fixing hopf
             raise Exception('Meridional components are not yet supported.')
         if (d,b) in edge_pairs:
-            continue
+            signs.append(1)
+            edge_orientations[d][1] = vert
+            edge_orientations[b][0] = vert
         if (b,d) in edge_pairs: #elif? do i get hopf issues?
-            continue
+            signs.append(-1)
+            edge_orientations[b][1] = vert
+            edge_orientations[d][0] = vert
+
+    for edge in range(1,2*len(code)+1):
+        pass
+        #connect the graph. this should be it! the code below is probably depricated.
 
     print(edge_pairs)
     for vert in code:
