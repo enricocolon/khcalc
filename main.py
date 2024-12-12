@@ -43,6 +43,8 @@ def knot_to_init_resolution(knotlike):
     edge_history = set()
     for crossing in code:
         [a,b,c,d] = crossing
+        for e in crossing:
+            resolution.add_vertex(e)
         if (b,d) in edge_history or (d,b) in edge_history: #do for AC too or no?
             raise Exception('Meridional components are not yet supported.')
         elif d == b + 1:
@@ -51,7 +53,7 @@ def knot_to_init_resolution(knotlike):
                                   (b,f'{crossing}_in'),
                                   (f'{crossing}_in',f'{crossing}_out'),
                                   (f'{crossing}_out',c),
-                                  (f'{crossing}_out',d),
+                                  (f'{crossing}_out',d),#add this down the way
                                   ])
             resolution.set_vertex(f'{crossing}_in',{'in_orientation':(a,b)})
             resolution.set_vertex(f'{crossing}_out',{'out_orientation':(c,d)})
@@ -104,12 +106,15 @@ def vertex_contract(graph, vert):
 
     NOTE: the operation name may not be standard. Check this later.
     '''
-    try:
-        if not len(graph.get_vertex(vert)['in_orientation']) == len(graph.get_vertex(vert)['out_orientation']) == 1:
-            raise Exception('Vertex cannot be contracted.')
-    except Exception as e:
-        print(f'An error occured: {e}')
-    pass
+    in_edges = graph.incoming_edges(vert)
+    out_edges = graph.outgoing_edges(vert)
+
+    if not len(in_edges) == len(out_edges) == 1:
+        raise Exception('Vertex cannot be contracted.')
+
+    graph.add_edge(in_edges[0][0],out_edges[0][1],in_edges[0][2])
+    graph.delete_vertex(vert)
+    return graph
 
 def trivalent_unzip(graph, edge):
     '''
@@ -118,6 +123,7 @@ def trivalent_unzip(graph, edge):
     Output: a new trivalent graph unzipped along (u,v).
     '''
     (u, v, label) = edge
+    graph.add_edge((f'{u}_temp',f'{v}_temp',label))
     try:
         if not len(graph.get_vertex(u)['in_orientation']) == len(graph.get_vertex(v)['out_orientation']) == 2:
             raise Exception('Vertices do not have the correct degrees.')
@@ -125,4 +131,13 @@ def trivalent_unzip(graph, edge):
         print(f'An error occured: {e}')
     (m,n) = graph.get_vertex(u)['in_orientation']
     (q,r) = graph.get_vertex(v)['out_orientation']
-    pass
+    print(m,n,q,r,u,v)
+    n_label = graph.edge_label(n,u)
+    q_label = graph.edge_label(v,q)
+    graph.add_edge(n, f'{u}_temp', n_label)
+    graph.add_edge(f'{v}_temp', q, q_label)
+    graph.delete_edge(n,u)
+    graph.delete_edge(v,q)
+    return graph
+
+A = knot_to_init_resolution(K)
