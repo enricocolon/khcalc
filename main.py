@@ -15,6 +15,21 @@ def dict_print(dicti):
         for i in dicti.keys():
             print(f'{i}: {dicti[i]}')
 
+def list_print(lst):
+    if type(lst) != list:
+        raise Exception('Not a list!')
+    else:
+        for i in lst:
+            print(i)
+
+def printt(var):
+    if type(var) == dict:
+        dict_print(var)
+    elif type(var) == list:
+        list_print(var)
+    else:
+        print(var)
+
 def pd_code(knotlike):
     '''
     Input: KnotInfo, Knot, or PD Code object
@@ -131,13 +146,61 @@ def trivalent_unzip(graph, edge):
         print(f'An error occured: {e}')
     (m,n) = graph.get_vertex(u)['in_orientation']
     (q,r) = graph.get_vertex(v)['out_orientation']
-    print(m,n,q,r,u,v)
+    #print(m,n,q,r,u,v)
     n_label = graph.edge_label(n,u)
     q_label = graph.edge_label(v,q)
     graph.add_edge(n, f'{u}_temp', n_label)
     graph.add_edge(f'{v}_temp', q, q_label)
     graph.delete_edge(n,u)
     graph.delete_edge(v,q)
+    vertex_contract(graph, u)
+    vertex_contract(graph, f'{u}_temp')
+    vertex_contract(graph, v)
+    vertex_contract(graph, f'{v}_temp')
     return graph
+
+def tri_unzip(graph, crossing):
+    '''
+    Shorthand, only requires the crossing. MAKE SURE IT IS LABEL-COMPATIBLE.
+    '''
+    crossing = list(crossing)
+    edge = (f'{crossing}_in', f'{crossing}_out', None)
+    return trivalent_unzip(graph, edge)
+
+def graph_traversal(graph):
+    '''
+    NOTE: this requires wide edges to have vertices '[a, b, c, d]_in' and '[a, b, c, d]_out'
+    '''
+    visited = set()
+    queue = []
+    vertex_set = set(graph.vertices())
+    components = list()
+    while visited != vertex_set:
+        if curr[0].endswitch('_in','_out'):
+            source = curr[0][:12] + '_in'
+            target = curr[0][:12] + '_out'
+            s_neigh = graph.neighbors(source)
+            t_neigh = graph.neighbors(target)
+            component_vertices = s_neigh + t_neigh
+            visited.add(source)
+            visited.add(target)
+            for vertex in set(component_vertices)-{source, target}:
+                if vertex not in visited:
+                    queue.append(vertex)
+
+        elif curr[1].endswitch('_in','_out'):
+            source = curr[1][:12] + '_in'
+            target = curr[1][:12] + '_out'
+            s_neigh = graph.neighbors(source)
+            t_neigh = graph.neighbors(target)
+            component_vertices = s_neigh + t_neigh
+            visited.add(source)
+            visited.add(target)
+            for vertex in set(component_vertices)-{source, target}:
+                if vertex not in visited:
+                    queue.append(vertex)
+        else:
+            pass
+
 
 A = knot_to_init_resolution(K)
