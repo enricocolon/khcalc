@@ -167,40 +167,30 @@ def tri_unzip(graph, crossing):
     edge = (f'{crossing}_in', f'{crossing}_out', None)
     return trivalent_unzip(graph, edge)
 
-def graph_traversal(graph):
+def graph_traversal(graph, start_crossing):
     '''
     NOTE: this requires wide edges to have vertices '[a, b, c, d]_in' and '[a, b, c, d]_out'
     '''
-    visited = set()
-    queue = []
+    start_in = str(start_crossing) + '_in'
+    start_out = str(start_crossing) + '_out'
+    in_neigh = set(graph.neighbors(start_in))
+    out_neigh = set(graph.neighbors(start_out))
+    neigh = in_neigh.union(out_neigh)-{start_in,start_out}
+    visited = {start_in, start_out}
+    queue = list(neigh)
     vertex_set = set(graph.vertices())
-    components = list()
+    components = [f'C_t_{start_crossing}']
     while visited != vertex_set:
-        if curr[0].endswitch('_in','_out'):
-            source = curr[0][:12] + '_in'
-            target = curr[0][:12] + '_out'
-            s_neigh = graph.neighbors(source)
-            t_neigh = graph.neighbors(target)
-            component_vertices = s_neigh + t_neigh
-            visited.add(source)
-            visited.add(target)
-            for vertex in set(component_vertices)-{source, target}:
-                if vertex not in visited:
-                    queue.append(vertex)
-
-        elif curr[1].endswitch('_in','_out'):
-            source = curr[1][:12] + '_in'
-            target = curr[1][:12] + '_out'
-            s_neigh = graph.neighbors(source)
-            t_neigh = graph.neighbors(target)
-            component_vertices = s_neigh + t_neigh
-            visited.add(source)
-            visited.add(target)
-            for vertex in set(component_vertices)-{source, target}:
-                if vertex not in visited:
-                    queue.append(vertex)
+        if queue == []:
+            raise Exception(f'Graph {graph} must be connected.')
+        curr = queue.pop()
+        neigh = graph.neighbors(curr)
+        for vertex in neigh:
+            if vertex not in visited:
+                queue.append(vertex)
+        if curr.endswith('_in', '_out'):
+            components.append(f'C_t_{curr[:12]}')
         else:
             pass
-
 
 A = knot_to_init_resolution(K)
