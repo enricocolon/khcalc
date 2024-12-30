@@ -3,8 +3,12 @@ from sage.knots.knot import Knot
 import sage.knots.knotinfo
 from sage.knots.knotinfo import KnotInfo as KnotInfo #this might not be standard
 import copy
+from sage.homology.chain_complex import ChainComplex
 
 #sage.knots.link.Link.new_method = new_method
+
+Z2 = IntegerModRing(2)
+
 
 K = KnotInfo.K3_1
 
@@ -70,8 +74,8 @@ def knot_to_init_resolution(knotlike):
                                   (f'{crossing}_out',c),
                                   (f'{crossing}_out',d),#add this down the way
                                   ])
-            resolution.set_vertex(f'{crossing}_in',{'in_orientation':(a,b)})
-            resolution.set_vertex(f'{crossing}_out',{'out_orientation':(c,d)})
+            resolution.set_vertex(f'{crossing}_in',{'in_orientation':(a,b), 'sign':'-'})
+            resolution.set_vertex(f'{crossing}_out',{'out_orientation':(c,d), 'sign':'-'})
             #out (resp in)_orientation is the clockwise orientation of the
             #out (resp in) neighbors of the vertex.
             edge_history.add(tuple((b,d)))
@@ -83,8 +87,8 @@ def knot_to_init_resolution(knotlike):
                                   (f'{crossing}_out',b),
                                   (f'{crossing}_out',c),
                                   ])
-            resolution.set_vertex(f'{crossing}_in',{'in_orientation':(d,a)})
-            resolution.set_vertex(f'{crossing}_out',{'out_orientation':(b,c)})
+            resolution.set_vertex(f'{crossing}_in',{'in_orientation':(d,a), 'sign':'+'})
+            resolution.set_vertex(f'{crossing}_out',{'out_orientation':(b,c), 'sign':'+'})
             edge_history.add(tuple((d,b)))
         else:
             if b > d:
@@ -95,8 +99,8 @@ def knot_to_init_resolution(knotlike):
                                       (f'{crossing}_out',c),
                                       (f'{crossing}_out',d),
                                       ])
-                resolution.set_vertex(f'{crossing}_in',{'in_orientation':(a,b)})
-                resolution.set_vertex(f'{crossing}_out',{'out_orientation':(c,d)})
+                resolution.set_vertex(f'{crossing}_in',{'in_orientation':(a,b), 'sign':'-'})
+                resolution.set_vertex(f'{crossing}_out',{'out_orientation':(c,d), 'sign':'-'})
                 edge_history.add(tuple((b,d)))
             elif d > b:
                 #positive crossing
@@ -106,8 +110,8 @@ def knot_to_init_resolution(knotlike):
                                       (f'{crossing}_out',b),
                                       (f'{crossing}_out',c),
                                       ])
-                resolution.set_vertex(f'{crossing}_in',{'in_orientation':(d,a)})
-                resolution.set_vertex(f'{crossing}_out',{'out_orientation':(b,c)})
+                resolution.set_vertex(f'{crossing}_in',{'in_orientation':(d,a), 'sign':'+'})
+                resolution.set_vertex(f'{crossing}_out',{'out_orientation':(b,c), 'sign':'+'})
                 edge_history.add(tuple((d,b)))
         edge_history.add(tuple((a,c)))
     return resolution
@@ -193,4 +197,87 @@ def graph_traversal(graph, start_crossing):
         else:
             pass
 
+def search(graph):
+    visited = set()
+    queue = [graph.vertices()[0]]
+
+    while visited != set(graph.vertices()):
+        if queue == []:
+            differences = set(graph.vertices()) - visited
+            queue.append(list(differences)[0])
+        curr = queue.pop()
+        if curr in visited:
+            continue
+        elif curr[-3] == '_' or curr[-4] == '_': #if this is a wide edge vertex
+            pass
+        else:
+            pass
+        for neigh in graph.neighbors(curr):
+            queue.append(neigh)
+
+
+def short_edge_factorization(source, target, n):
+    '''
+    given vertices A->B in a graph, returns chain complex L_A^B, that is,
+    Q[x_A,x_B] -> Q[x_A,x_B] -> Q[x_A,x_B] with maps
+    (x_B^(n+1)-x_A^(n+1))/(x_B-x_A) and x_B-x_A respectively. (KR Matrix Factorizations p. 49)
+    '''
+    R = PolynomialRing(QQ, [f'x{source}',f'x{target}'])
+    x_source = 'x' + str(source)
+    x_target = 'x' + str(target)
+    x_source, x_target = R.gens()
+
+    M0 = R
+    M1 = R
+
+    d0_poly = (x_target**(n+1) - x_source**(n+1))/(x_target - x_source)
+    d1_poly = x_target - x_source
+
+    d0 = M0.hom(Matrix(R,[d0_poly*x_source,d0_poly*x_target]),M1)
+    d1 = M1.hom(Matrix(R,[d1_poly*x_source,d1_poly*x_target]),M0)
+    print(d0,d1)
+    factorization = ChainComplex({0:d0,1:d1},base_ring=R,grading_group=Z2,degree=1)
+
+def anti_block(A,B):
+    '''
+    Given A,B matrices, return the block matrix:
+
+    [[0,A],
+     [B,0]]
+    '''
+    if A.base_ring() != B.base_ring():
+        raise Exception('A,B must have the same base ring.')
+    m,n = A.nrows(),A.ncols()
+    p,q = B.nrows(),B.ncols()
+    tl = Matrix(A.base_ring(), m, q)
+    br = Matrix(A.base_ring(), p, n)
+    return block_matrix([[tl, A],[B, br]])
+
+
+class MatrixFactorization():
+    #TODO: Check for when R/(w) is not an isolated singularity.
+    def __init__(self, R, M0, M1, d0, d1):
+        if not M0 in Modules(R) or not M1 in Modules(R):
+            raise Exception('M0 and M1 must be modules over R.')
+        if not M0.rank() == d0.ncols() == d1.nrows() or not M1.rank() == d1.ncols() == d0.nrows():
+            raise Exception('d0 or d1 does not have the correct dimensions.')
+        #below: check that d^2m=wm
+        d = anti_block(d0, d1)
+        d2 = d**2
+        if d2 != d2[0][0]*identity_matrix(R, d0.ncols()+d1.ncols()):
+            raise Exception('d^2m != wm')
+        self.R = R
+        self.w = d2[0][0]
+        self.M0 = M0
+        self.M1 = M1
+        self.M = M0.direct_sum(M1)
+        self.d0 = d0
+        self.d1 = d1
+
+
+
+
+
 A = knot_to_init_resolution(K)
+
+MF = MatrixFactorization(QQ, FreeModule(QQ,1), FreeModule(QQ,1), Matrix(QQ, [2]), Matrix(QQ, [4]))
