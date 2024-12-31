@@ -254,8 +254,19 @@ def anti_block(A,B):
     return block_matrix([[tl, A],[B, br]])
 
 
+def direct_sum(mod1,mod2):
+    '''
+    given two free modules with a shared specified basis, return their direct sum.
+    WARNING: only works if mod1, mod2 over the same basis.
+    '''
+    if mod1.base_ring() != mod2.base_ring():
+        raise Exception('Modules must be over the same base ring.')
+    R = mod1.base_ring()
+    combined_basis = list(mod1.basis().keys()) + list(mod2.basis().keys())
+    return FreeModule(R, combined_basis)
+
 class MatrixFactorization():
-    #TODO: Check for when R/(w) is not an isolated singularity.
+    #TODO: Check for when R/(w) is not an isolated singularity. AND CHECK THAT THERE IS A BASIS.
     def __init__(self, R, M0, M1, d0, d1):
         if not M0 in Modules(R) or not M1 in Modules(R):
             raise Exception('M0 and M1 must be modules over R.')
@@ -274,10 +285,29 @@ class MatrixFactorization():
         self.d0 = d0
         self.d1 = d1
 
+    def tensor(self, other):
+        if self.R != other.R:
+            raise Exception('Your duplex modules must be over the same ring.')
+        MN0 = direct_sum(self.M0.tensor(other.M0), self.M1.tensor(other.M0))
+        MN1 = direct_sum(self.M1.tensor(other.M0), self.M0.tensor(other.M1))
+        Id_M0 = identity_matrix(self.R, self.M0.rank())
+        Id_M1 = identity_matrix(self.R, self.M1.rank())
+        Id_N0 = identity_matrix(other.R, other.M0.rank())
+        Id_N1 = identity_matrix(other.R, other.M1.rank())
+        D0 = block_matrix([[self.d0.tensor(Id_N0),Id_M1.tensor(other.d1)],
+                           [-Id_M0.tensor(other.d0),self.d1.tensor(Id_N1)]])
+        D1 = block_matrix([[self.d1.tensor(Id_N0),-Id_M0.tensor(other.d1)],
+                           [Id_M1.tensor(other.d0),self.d0.tensor(Id_N1)]])
+        tprod = MatrixFactorization(self.R, MN0, MN1, D0, D1)
+        return tprod
 
-
-
-
+#TODO: implement tensor products Q[_] tensor_Q[_] Q'[_]. Take tensor products. Cohomology.
+#TODO: figure out why the tensor operation isn't working
 A = knot_to_init_resolution(K)
 
+Qi = FreeModule(QQ, 1)
+xi = Qi.gen()
+Qj = FreeModule(QQ, 1)
+xj = Qj.gen()
 MF = MatrixFactorization(QQ, FreeModule(QQ,1), FreeModule(QQ,1), Matrix(QQ, [2]), Matrix(QQ, [4]))
+MF2= MatrixFactorization(QQ, FreeModule(QQ,1), FreeModule(QQ,1), Matrix(QQ, [3]), Matrix(QQ, [6]))
