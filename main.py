@@ -262,8 +262,8 @@ def direct_sum(mod1,mod2):
     if mod1.base_ring() != mod2.base_ring():
         raise Exception('Modules must be over the same base ring.')
     R = mod1.base_ring()
-    combined_basis = list(mod1.basis().keys()) + list(mod2.basis().keys())
-    return FreeModule(R, combined_basis)
+    combined_basis = list(mod1.gens()) + list(mod2.gens())
+    return CombinatorialFreeModule(R, combined_basis)
 
 class MatrixFactorization():
     #TODO: Check for when R/(w) is not an isolated singularity. AND CHECK THAT THERE IS A BASIS.
@@ -281,7 +281,7 @@ class MatrixFactorization():
         self.w = d2[0][0]
         self.M0 = M0
         self.M1 = M1
-        self.M = M0.direct_sum(M1)
+        self.M = direct_sum(M0, M1)
         self.d0 = d0
         self.d1 = d1
 
@@ -294,10 +294,10 @@ class MatrixFactorization():
         Id_M1 = identity_matrix(self.R, self.M1.rank())
         Id_N0 = identity_matrix(other.R, other.M0.rank())
         Id_N1 = identity_matrix(other.R, other.M1.rank())
-        D0 = block_matrix([[self.d0.tensor(Id_N0),Id_M1.tensor(other.d1)],
-                           [-Id_M0.tensor(other.d0),self.d1.tensor(Id_N1)]])
-        D1 = block_matrix([[self.d1.tensor(Id_N0),-Id_M0.tensor(other.d1)],
-                           [Id_M1.tensor(other.d0),self.d0.tensor(Id_N1)]])
+        D0 = block_matrix([[self.d0.tensor_product(Id_N0),Id_M1.tensor_product(other.d1)],
+                           [-Id_M0.tensor_product(other.d0),self.d1.tensor_product(Id_N1)]])
+        D1 = block_matrix([[self.d1.tensor_product(Id_N0),-Id_M0.tensor_product(other.d1)],
+                           [Id_M1.tensor_product(other.d0),self.d0.tensor_product(Id_N1)]])
         tprod = MatrixFactorization(self.R, MN0, MN1, D0, D1)
         return tprod
 
@@ -305,9 +305,7 @@ class MatrixFactorization():
 #TODO: figure out why the tensor operation isn't working
 A = knot_to_init_resolution(K)
 
-Qi = FreeModule(QQ, 1)
-xi = Qi.gen()
-Qj = FreeModule(QQ, 1)
-xj = Qj.gen()
-MF = MatrixFactorization(QQ, FreeModule(QQ,1), FreeModule(QQ,1), Matrix(QQ, [2]), Matrix(QQ, [4]))
-MF2= MatrixFactorization(QQ, FreeModule(QQ,1), FreeModule(QQ,1), Matrix(QQ, [3]), Matrix(QQ, [6]))
+Qi = CombinatorialFreeModule(QQ, ['xi'])
+Qj = CombinatorialFreeModule(QQ, ['xj'])
+MF = MatrixFactorization(QQ, Qi, Qj, Matrix(QQ, [2]), Matrix(QQ, [4]))
+MF2= MatrixFactorization(QQ, Qi, Qj, Matrix(QQ, [3]), Matrix(QQ, [6]))
