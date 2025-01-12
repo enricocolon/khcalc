@@ -4,7 +4,9 @@ import sage.knots.knotinfo
 from sage.knots.knotinfo import KnotInfo as KnotInfo #this might not be standard
 import copy
 from sage.homology.chain_complex import ChainComplex
-
+from sage.categories.category import Category
+from sage.categories.morphism import Morphism
+from sage.categories.modules import Modules
 #sage.knots.link.Link.new_method = new_method
 
 Z2 = IntegerModRing(2)
@@ -288,24 +290,49 @@ class MatrixFactorization():
     def tensor(self, other):
         if self.R != other.R:
             raise Exception('Your duplex modules must be over the same ring.')
-        MN0 = direct_sum(self.M0.tensor(other.M0), self.M1.tensor(other.M0))
+        MN0 = direct_sum(self.M0.tensor(other.M0), self.M1.tensor(other.M1))
         MN1 = direct_sum(self.M1.tensor(other.M0), self.M0.tensor(other.M1))
         Id_M0 = identity_matrix(self.R, self.M0.rank())
         Id_M1 = identity_matrix(self.R, self.M1.rank())
         Id_N0 = identity_matrix(other.R, other.M0.rank())
         Id_N1 = identity_matrix(other.R, other.M1.rank())
-        D0 = block_matrix([[self.d0.tensor_product(Id_N0),Id_M1.tensor_product(other.d1)],
-                           [-Id_M0.tensor_product(other.d0),self.d1.tensor_product(Id_N1)]])
-        D1 = block_matrix([[self.d1.tensor_product(Id_N0),-Id_M0.tensor_product(other.d1)],
-                           [Id_M1.tensor_product(other.d0),self.d0.tensor_product(Id_N1)]])
+        D0 = block_matrix([[-Id_M0.tensor_product(other.d0),self.d1.tensor_product(Id_N1)],
+                           [self.d0.tensor_product(Id_N0),Id_M1.tensor_product(other.d1)]])
+        D1 = block_matrix([[-Id_M0.tensor_product(other.d1),self.d1.tensor_product(Id_N0)],
+                           [self.d0.tensor_product(Id_N1),Id_M1.tensor_product(other.d0)]])
         tprod = MatrixFactorization(self.R, MN0, MN1, D0, D1)
         return tprod
 
+def pi(x,y,n):
+    '''
+    given variables x,y, and an integer n, returns
+    pi_xy = x^{n+1}-y^{n+1}/x-y=x^n+x^{n-1}y+...+y^n
+    '''
+    x, y = var('x y')
+    A = 0
+    for i in range(n+1):
+        A += x**(n-i)*y**(i)
+    return A
+
 #TODO: implement tensor products Q[_] tensor_Q[_] Q'[_]. Take tensor products. Cohomology.
-#TODO: figure out why the tensor operation isn't working
+#TODO: figure out when you can tensor over a different base ring and implement that.
+#I think we're in business, because we have a smallest ring--Q--so all of the data should be contained
+#in that tensor product. IDEA: store the d-maps as maps over the base ring Q. Tensor over bigger
+#rings using minors.
 A = knot_to_init_resolution(K)
 
 Qi = CombinatorialFreeModule(QQ, ['xi'])
 Qj = CombinatorialFreeModule(QQ, ['xj'])
+
 MF = MatrixFactorization(QQ, Qi, Qj, Matrix(QQ, [2]), Matrix(QQ, [4]))
 MF2= MatrixFactorization(QQ, Qi, Qj, Matrix(QQ, [3]), Matrix(QQ, [6]))
+
+R = QQ['x','y']
+R2 = QQ['y','z']
+M = CombinatorialFreeModule(QQ['x','y'],['e'])
+M2 = CombinatorialFreeModule(R2,['e'])
+Lxy = MatrixFactorization(R,M,M, Matrix(R, [pi('x','y',4)]), Matrix(R, [x-y]))
+
+Lyz = MatrixFactorization(R2,M2,M2, Matrix(R2, [pi('y','z',4)]), Matrix(R2, [y-z]))
+
+Lxyyz = Lxy.tensor(Lyz)
