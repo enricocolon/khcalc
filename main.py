@@ -240,7 +240,7 @@ def short_edge_factorization(source, target, n):
     print(d0,d1)
     factorization = ChainComplex({0:d0,1:d1},base_ring=R,grading_group=Z2,degree=1)
 
-def anti_block(A,B):
+def anti_block(A,B): #DO NOT DELETE.
     '''
     Given A,B matrices, return the block matrix:
 
@@ -256,7 +256,7 @@ def anti_block(A,B):
     return block_matrix([[tl, A],[B, br]])
 
 
-def direct_sum(mod1,mod2):
+def direct_sum(mod1,mod2): #DO NOT DELETE.
     '''
     given two free modules with a shared specified basis, return their direct sum.
     WARNING: only works if mod1, mod2 over the same basis.
@@ -303,12 +303,13 @@ class MatrixFactorization():
         tprod = MatrixFactorization(self.R, MN0, MN1, D0, D1)
         return tprod
 
-def pi(x,y,n):
+def pi(x_str,y_str,n):
     '''
     given variables x,y, and an integer n, returns
     pi_xy = x^{n+1}-y^{n+1}/x-y=x^n+x^{n-1}y+...+y^n
     '''
-    x, y = var('x y')
+    #x, y = var('x y')
+    x, y = var(x_str), var(y_str)
     A = 0
     for i in range(n+1):
         A += x**(n-i)*y**(i)
@@ -330,9 +331,100 @@ MF2= MatrixFactorization(QQ, Qi, Qj, Matrix(QQ, [3]), Matrix(QQ, [6]))
 R = QQ['x','y']
 R2 = QQ['y','z']
 M = CombinatorialFreeModule(QQ['x','y'],['e'])
+Ma = CombinatorialFreeModule(QQ['x','y'],['a'])
 M2 = CombinatorialFreeModule(R2,['e'])
-Lxy = MatrixFactorization(R,M,M, Matrix(R, [pi('x','y',4)]), Matrix(R, [x-y]))
+M2b = CombinatorialFreeModule(R2,['b'])
+Lxy = MatrixFactorization(R,M,Ma, Matrix(R, [pi('x','y',4)]), Matrix(R, [x-y]))
 
-Lyz = MatrixFactorization(R2,M2,M2, Matrix(R2, [pi('y','z',4)]), Matrix(R2, [y-z]))
+Lyz = MatrixFactorization(R2,M2,M2b, Matrix(R2, [pi('y','z',4)]), Matrix(R2, [y-z]))
 
-Lxyyz = Lxy.tensor(Lyz)
+#Lxyyz = Lxy.tensor(Lyz)
+
+class MatFact():
+    def __init__(self, d0, d1):
+        for d in (d0,d1):
+            if not isinstance(d, sage.matrix.matrix0.Matrix):
+                raise Exception(f'{d} is not a Matrix.')
+        if not d0.nrows() == d0.ncols() == d1.nrows() == d1.ncols():
+            raise Exception(f"{d0} and {d1} must be square matrices of the same size.")
+        if not d0.base_ring() == d1.base_ring():
+            raise Exception(f"{d0} and {d1} must take entries in the same ring.")
+        self.R = d0.base_ring()
+        d = anti_block(d0, d1)
+        d2 = d**2
+        self.d0 = d0
+        self.d1 = d1
+        if d2 != d2[0][0]*identity_matrix(self.R, self.d0.ncols()+self.d1.ncols()):
+            raise Exception(f'd^2m != wm\nd^2=\n{d2}')
+        self.w = d2[0][0]
+
+        self.rank = self.d0.ncols()
+
+    def __repr__(self):
+        return f"{self.R} -> {self.R} -> {self.R},\nd0=\n{self.d0}\nd1=\n{self.d1}"
+
+    def tensor(self, other):
+        if self.R != other.R:
+            raise Exception(f'Your duplex modules must be over the same ring.\nself.R = {self.R}\nother.R = {other.R}')
+
+        Im = identity_matrix(self.R, self.rank)
+        In = identity_matrix(self.R, other.rank)
+
+        D0 = self.d0.tensor_product(In)
+        D1 = self.d1.tensor_product(In)
+        E0 = Im.tensor_product(other.d0)
+        E1 = Im.tensor_product(other.d1)
+
+        d0 = block_matrix(self.R,[[D0, E1],[E0, -1*D1]])
+        d1 = block_matrix(self.R,[[D1, E1],[E0, -1*D0]])
+        return MatFact(d0, d1)
+
+    def get_external_tensor_ring(self, other):
+        if self.R.base() != other.R.base():
+            raise Exception("Matrix Factorization must be over polynomial rings of the same base.")
+        base = self.R.base()
+        gens1 = list(self.R.gens())
+        gens2 = list(other.R.gens())
+        gens = gens1
+        for i in gens2:
+            if i not in gens1:
+                gens.append(i)
+        R = base[gens]
+        return R
+
+    def direct_sum(self, other):
+        if self.R != other.R:
+            raise Exception('Base rings must match.')
+        if self.w != other.w:
+            raise Exception('Factorizations must have same w.')
+        d0 = block_matrix(self.R, [[self.d0, 0], [0, other.d0]])
+        d1 = block_matrix(self.R, [[self.d1, 0], [0, other.d1]])
+        return MatFact(d0, d1)
+
+    def angle_shift(self, i=1):
+        if i % 2 == 0:
+            return self
+        if i % 2 == 1:
+            return MatFact(-self.d1, -self.d0)
+
+    def external_tensor(self, other):
+        R = self.get_external_tensor_ring(other)
+        #print(R,self.d0.change_ring(R), self.d1.change_ring(R),other.d0.change_ring(R), other.d0.change_ring(R),other.d1.change_ring(R).base_ring())
+        mf1 = MatFact(self.d0.change_ring(R), self.d1.change_ring(R))
+        #print(mf1.d0, mf1.d0.base_ring(), mf1.R, "!")
+        mf2 = MatFact(other.d0.change_ring(R), other.d1.change_ring(R))
+        return mf1.tensor(mf2)
+
+Qxy = QQ['x','y']
+Qyz = QQ['y','z']
+pixy = pi('x','y',4)
+piyz = pi('y','z',4)
+Md0 = Matrix(Qxy, [pixy])
+Md1 = Matrix(Qxy, [x-y])
+Nd0 = Matrix(Qyz, [piyz])
+Nd1 = Matrix(Qyz, [y-z])
+
+mf1 = MatFact(Md0,Md1)
+mf2 = MatFact(Nd0,Nd1)
+
+print(mf1.direct_sum(mf1.angle_shift()))
