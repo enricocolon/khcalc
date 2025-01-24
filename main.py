@@ -315,6 +315,30 @@ def pi(x_str,y_str,n):
         A += x**(n-i)*y**(i)
     return A
 
+def g(x_str,y_str,n):
+    '''
+    input: variables
+    output: a function g such that g(x+y,xy)=x^{n+1}+y^{n+1}
+    '''
+    x, y = var(x_str), var(y_str)
+    g = x**(n+1)
+    g_1 = 0
+    for i in range(1,floor((n+1)/2)+1):
+        print(i)
+        g_1 += ((-1)**(i)*binomial(n-i,i-1)*y**(i)*x**(n+1-2*i))*i**-1
+    g += (n+1)*g_1
+    return g.expand()
+
+def u_1(x_str,y_str,z_str,w_str,n):
+    x, y, z, w = var(x_str), var(y_str), var(z_str), var(w_str)
+    return (g(x+y,x*y,n)-g(z+w,x*y,n))*(x+y-z-w)**(-1)
+
+def u_2(x_str,y_str,z_str,w_str,n):
+    x, y, z, w = var(x_str), var(y_str), var(z_str), var(w_str)
+    return (g(z+w,x*y,n)-g(z+w,z*w,n))*(x*y-z*w)**(-1)
+
+# u_1*(x+y+z-w)+u_2(xy-zw)=x^{n+1}+y^{n+1}-z^{n+1}-w^{n+1}
+
 #TODO: implement tensor products Q[_] tensor_Q[_] Q'[_]. Take tensor products. Cohomology.
 #TODO: figure out when you can tensor over a different base ring and implement that.
 #I think we're in business, because we have a smallest ring--Q--so all of the data should be contained
@@ -357,6 +381,7 @@ class MatFact():
         if d2 != d2[0][0]*identity_matrix(self.R, self.d0.ncols()+self.d1.ncols()):
             raise Exception(f'd^2m != wm\nd^2=\n{d2}')
         self.w = d2[0][0]
+
 
         self.rank = self.d0.ncols()
 
@@ -415,6 +440,50 @@ class MatFact():
         mf2 = MatFact(other.d0.change_ring(R), other.d1.change_ring(R))
         return mf1.tensor(mf2)
 
+
+def label_tensor(list1,list2):
+    '''
+    given list1, list2 lists of strings, returns a list of length len(list1)*len(list2) with entries
+    [l1[0]+l2[0],l1[1]+l2[0],..., l1[n]l2[0].........l1[n]l2[n]]
+    '''
+    return [l1 + l2 for l2 in list2 for l1 in list1]
+
+#IMPLEMENT A CHECK THAT MAKES SURE PROPER # OF LABELS AND GRADING SHIFTS EXISTS.
+
+class LabelMF(MatFact):
+    def __init__(self, d0, d1, labels_0,labels_1):
+        super().__init__(d0, d1)
+        self.labels_0 = labels_0
+        self.labels_1 = labels_1
+
+    def tensor(self,other):
+        lab_0 = label_tensor(self.labels_0, other.labels_0) + label_tensor(self.labels_1,other.labels_1)
+        lab_1 = label_tensor(self.labels_1, other.labels_0) + label_tensor(self.labels_0,other.labels_1)
+        mf = super().external_tensor(other)
+        return LabelMF(mf.d0, mf.d1, lab_0, lab_1)
+
+    def labels(self):
+        return {0: self.labels_0, 1: self.labels_1}
+
+
+class GradedMatFact(MatFact):
+    def __init__(self, d0, d1, curly_shift_0, curly_shift_1):
+        super().__init__(d0, d1)
+        if not self.R(self.w).is_homogeneous():
+            raise Exception(f'w must be homogeneous.\nw = {w}')
+
+        #at some point, implement degree of each x_i.
+        #for now, curly_shift should be a
+
+        self.M0_curly_shift = curly_shift_0
+        self.M1_curly_shift = curly_shift_1
+
+    def tensor(self, other):
+        return super().external_tensor(other)
+    
+
+
+    
 Qxy = QQ['x','y']
 Qyz = QQ['y','z']
 pixy = pi('x','y',4)
@@ -426,5 +495,7 @@ Nd1 = Matrix(Qyz, [y-z])
 
 mf1 = MatFact(Md0,Md1)
 mf2 = MatFact(Nd0,Nd1)
+LMF1 = LabelMF(mf1.d0, mf1.d1, [''], ['a'])
+LMF2 = LabelMF(mf2.d0, mf2.d1, [''], ['b'])
 
-print(mf1.direct_sum(mf1.angle_shift()))
+#print(mf1.direct_sum(mf1.angle_shift()))
