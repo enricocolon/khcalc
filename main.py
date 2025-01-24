@@ -146,7 +146,8 @@ def trivalent_unzip(graph, edge):
     (u, v, label) = edge
     graph.add_edge((f'{u}_temp',f'{v}_temp',label))
     try:
-        if not len(graph.get_vertex(u)['in_orientation']) == len(graph.get_vertex(v)['out_orientation']) == 2:
+        if not len(graph.get_vertex(u)['in_orientation']) == \
+           len(graph.get_vertex(v)['out_orientation']) == 2:
             raise Exception('Vertices do not have the correct degrees.')
     except Exception as e:
         print(f'An error occured: {e}')
@@ -272,7 +273,8 @@ class MatrixFactorization():
     def __init__(self, R, M0, M1, d0, d1):
         if not M0 in Modules(R) or not M1 in Modules(R):
             raise Exception('M0 and M1 must be modules over R.')
-        if not M0.rank() == d0.ncols() == d1.nrows() or not M1.rank() == d1.ncols() == d0.nrows():
+        if not M0.rank() == d0.ncols() == d1.nrows() or \
+           not M1.rank() == d1.ncols() == d0.nrows():
             raise Exception('d0 or d1 does not have the correct dimensions.')
         #below: check that d^2m=wm
         d = anti_block(d0, d1)
@@ -426,6 +428,7 @@ class MatFact():
         d1 = block_matrix(self.R, [[self.d1, 0], [0, other.d1]])
         return MatFact(d0, d1)
 
+    @abstract_method
     def angle_shift(self, i=1):
         if i % 2 == 0:
             return self
@@ -452,13 +455,15 @@ def label_tensor(list1,list2):
 
 class LabelMF(MatFact):
     def __init__(self, d0, d1, labels_0,labels_1):
-        super().__init__(d0, d1)
+        MatFact.__init__(self, d0, d1)
         self.labels_0 = labels_0
         self.labels_1 = labels_1
 
     def tensor(self,other):
-        lab_0 = label_tensor(self.labels_0, other.labels_0) + label_tensor(self.labels_1,other.labels_1)
-        lab_1 = label_tensor(self.labels_1, other.labels_0) + label_tensor(self.labels_0,other.labels_1)
+        lab_0 = label_tensor(self.labels_0, other.labels_0) + \
+            label_tensor(self.labels_1,other.labels_1)
+        lab_1 = label_tensor(self.labels_1, other.labels_0) + \
+            label_tensor(self.labels_0,other.labels_1)
         mf = super().external_tensor(other)
         return LabelMF(mf.d0, mf.d1, lab_0, lab_1)
 
@@ -467,23 +472,76 @@ class LabelMF(MatFact):
 
 
 class GradedMatFact(MatFact):
-    def __init__(self, d0, d1, curly_shift_0, curly_shift_1):
-        super().__init__(d0, d1)
-        if not self.R(self.w).is_homogeneous():
+    def __init__(self, d0, d1, deg_shift_0, deg_shift_1):
+        MatFact.__init__(self, d0, d1)
+        if not is_homogeneous(self.w):
             raise Exception(f'w must be homogeneous.\nw = {w}')
+        if len(list(deg_shift_0)) != self.d0.nrows() or \
+           len(list(deg_shift_1)) != self.d1.nrows() or \
+           not type(deg_shift_0)==type(deg_shift_1)==list:
+            print(deg_shift_0,deg_shift_1,self.d0.nrows(),self.d1.nrows())
+            raise Exception('Degree shifts must be lists of rank length.')
 
-        #at some point, implement degree of each x_i.
-        #for now, curly_shift should be a
 
-        self.M0_curly_shift = curly_shift_0
-        self.M1_curly_shift = curly_shift_1
+        #curly brace shift
+        self.deg_shift_0 = deg_shift_0
+        self.deg_shift_1 = deg_shift_1
+
+        self.ds0mat = Matrix(ZZ, deg_shift_0)
+        self.ds1mat = Matrix(ZZ, deg_shift_1)
 
     def tensor(self, other):
-        return super().external_tensor(other)
-    
+        ds0 = self.ds0mat.tensor_product(other.ds0mat) + \
+            self.ds1mat.tensor_product(other.ds1mat)
+        ds1 = self.ds1mat.tensor_product(other.ds0mat) + \
+            self.ds0mat.tensor_product(other.ds1mat)
+        mf = super().external_tensor(other)
+        return GradedMatFact(mf, list(ds0), list(ds1))
+
+def is_homogeneous(powsrs):
+    '''
+    Given a PowerSeries or MPowerSeries object, returns True if homogeneous and False otherwise.
+    '''
+    exponents = powsrs.exponents()
+    degrees = [sum(exp) for exp in exponents]
+    if len(set(degrees)-{0}) <= 1:
+        return True
+    else:
+        return False
+
+#TODO: handle homogeneity/different rings (cf: KR Matrix Factorizations Prop 9? 10?)
+
+class LabelGMF(LabelMF, GradedMatFact):
+    def __init__(self, d0, d1, labels_0, labels_1, deg_shift_0, deg_shift_1):
+        LabelMF.__init__(self, d0, d1, labels_0, labels_1)
+        GradedMatFact.__init__(self, d0, d1, deg_shift_0, deg_shift_1)
+
+    def tensor(self, other):
+        lab_0 = label_tensor(self.labels_0, other.labels_0) + \
+            label_tensor(self.labels_1,other.labels_1)
+        lab_1 = label_tensor(self.labels_1, other.labels_0) + \
+            label_tensor(self.labels_0,other.labels_1)
+        ds0 = self.ds0mat.tensor_product(other.ds0mat) + \
+            self.ds1mat.tensor_product(other.ds1mat)
+        ds1 = self.ds1mat.tensor_product(other.ds0mat) + \
+            self.ds0mat.tensor_product(other.ds1mat)
+        mf = MatFact.external_tensor(self,other)
+        if is_homogeneous(self.w + other.w):
+            return LabelGMF(mf.d0, mf.d1, lab_0, lab_1, ds0, ds1)
+            #return LabelMF.tensor(self, other)
+        else:
+            return LabelMF.tensor(self, other)
+
+    def angle_shift(self, i=1):
+        if i % 2 == 0:
+            return self
+        if i % 2 == 1:
+            return LabelGMF(-self.d1, -self.d0, self.labels_1, self.labels_0, self.deg_shift_1, self.deg_shift_0)
+
+    def __repr__(self):
+        return f"R"
 
 
-    
 Qxy = QQ['x','y']
 Qyz = QQ['y','z']
 pixy = pi('x','y',4)
@@ -497,5 +555,7 @@ mf1 = MatFact(Md0,Md1)
 mf2 = MatFact(Nd0,Nd1)
 LMF1 = LabelMF(mf1.d0, mf1.d1, [''], ['a'])
 LMF2 = LabelMF(mf2.d0, mf2.d1, [''], ['b'])
+LGMF1 = LabelGMF(mf1.d0, mf1.d1, [''],['a'], [2],[-1])
+LGMF2 = LabelGMF(mf2.d0, mf2.d1, [''],['b'], [2],[-1])
 
 #print(mf1.direct_sum(mf1.angle_shift()))
