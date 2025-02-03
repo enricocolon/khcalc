@@ -424,8 +424,9 @@ class MatFact():
             raise Exception('Base rings must match.')
         if self.w != other.w:
             raise Exception('Factorizations must have same w.')
-        d0 = block_matrix(self.R, [[self.d0, 0], [0, other.d0]])
-        d1 = block_matrix(self.R, [[self.d1, 0], [0, other.d1]])
+        #R = self.get_external_tensor_ring(other) <- DIDNT WORK BUT THIS IDEA
+        d0 = block_matrix(R, [[R(self.d0), 0], [0, R(other.d0)]])
+        d1 = block_matrix(R, [[R(self.d1), 0], [0, R(other.d1)]])
         return MatFact(d0, d1)
 
     @abstract_method
@@ -530,6 +531,8 @@ class LabelGMF(LabelMF, GradedMatFact):
         GradedMatFact.__init__(self, d0, d1, deg_shift_0, deg_shift_1)
 
     def tensor(self, other, shift0=None, shift1=None):
+        R = self.get_external_tensor_ring(other)
+        #^^^ MAKE SURE THIS FIX IS APPLIED EVERYWHERE.
         lab_0 = label_tensor(self.labels_0, other.labels_0) + \
             label_tensor(self.labels_1,other.labels_1)
         lab_1 = label_tensor(self.labels_1, other.labels_0) + \
@@ -539,7 +542,7 @@ class LabelGMF(LabelMF, GradedMatFact):
         ds_1 = label_tensor(self.deg_shift_1, other.deg_shift_0) + \
             label_tensor(self.deg_shift_0, other.deg_shift_1)
         mf = MatFact.external_tensor(self,other)
-        if is_homogeneous(self.w + other.w):
+        if is_homogeneous(R(self.w) + R(other.w)):
             if shift0 or shift1:
                 if not len(shift0) == len(shift1) == len(ds_0):
                     raise Exception('shift0, shift1 must be an appropriately sized list of degree shifts')
@@ -561,9 +564,17 @@ class LabelGMF(LabelMF, GradedMatFact):
             f"\nd1:\n{self.d1}"
 
     def direct_sum(self, other):
+        #FIX!!!!! this is preventing you from implementing complexes
         mf = MatFact.direct_sum(self,other)
         return LabelGMF(mf.d0, mf.d1, self.labels_0 + other.labels_0, self.labels_1 + other.labels_1, \
                         self.deg_shift_0 + other.deg_shift_0, self.deg_shift_1 + other.deg_shift_1)
+
+    def curly_shift(self, arr0, arr1):
+        if len(arr0)!= len(self.deg_shift_0) or len(arr1) != len(self.deg_shift_1):
+            raise Exception('Degree shifts must be of appropriate size.')
+        return LabelGMF(self.d0, self.d1, self.labels_1, self.labels_0, listsum(self.deg_shift_0, arr0), \
+                        listsum(self.deg_shift_1, arr1))
+
 
     def dual(self):
         '''
@@ -615,12 +626,30 @@ class LabelGMFComplex():
                 else:
                     tensor[i+j] = tensor[i+j].direct_sum(self.complex[i].tensor(other.complex[j]))
                 #gotta handle the maps!
+                #
+    def __repr__(self):
+        for i in self.complex.keys():
+            print(f'{i}: {self.complex[i]}\n')
 
-def Cp(x1_str, x2_str, x3_str, x4_str, n):
+def Cp(x1_str, x2_str, x3_str, x4_str, n, sign):
+    if not (sign == '+' or sign == '-'):
+        raise Exception(f'Sign {sign} must be either "+" or "-"')
+    #choose: mu=0, so lambda=1
+    x1, x2, x3, x4 = var(x1_str, x2_str, x3_str, x4_str)
     L14 = Lij(x1_str, x4_str, n)
     L23 = Lij(x2_str, x3_str, n)
     gamma0 = L14.tensor(L23)
-    gamma1 = C_t(x1_str, x2_str, x3_str, x4_str, n)
+    gamma1 = Ct(x1_str, x2_str, x3_str, x4_str, n)
+    u1 = u_1(x1_str, x2_str, x3_str, x4_str, n)
+    u2 = u_2(x1_str, x2_str, x3_str, x4_str, n)
+    #U0 = Matrix(R, [[x4-x2, 0],[-u2+(u1+x1*u2-pi(x2_str,x3_str,n))/(x1-x4), 1]])
+    if sign == '+':
+        return LabelGMFComplex({-1: gamma1.curly_shift([1-n,1-n],[1-n,1-n]), \
+                                0: gamma0.curly_shift([-n, -n],[-n, -n])})
+    if sign == '-':
+        return LabelGMFComplex({0: gamma0.curly_shift([n,n],[n,n]), 1: gamma1.curly_shift([n-1,n-1], \
+                                                                                          [n-1,n-1])})
+    #U1 = Matrix(R, [[],[-1, 1]])
 
 
 
