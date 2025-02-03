@@ -326,7 +326,6 @@ def g(x_str,y_str,n):
     g = x**(n+1)
     g_1 = 0
     for i in range(1,floor((n+1)/2)+1):
-        print(i)
         g_1 += ((-1)**(i)*binomial(n-i,i-1)*y**(i)*x**(n+1-2*i))*i**-1
     g += (n+1)*g_1
     return g.expand()
@@ -419,6 +418,7 @@ class MatFact():
         R = base[gens]
         return R
 
+
     def direct_sum(self, other):
         if self.R != other.R:
             raise Exception('Base rings must match.')
@@ -450,6 +450,13 @@ def label_tensor(list1,list2):
     [l1[0]+l2[0],l1[1]+l2[0],..., l1[n]l2[0].........l1[n]l2[n]]
     '''
     return [l1 + l2 for l2 in list2 for l1 in list1]
+
+
+def listsum(lst1, lst2):
+    if len(lst1) != len (lst2):
+        raise Exception('dimensions must match')
+    return [lst1[i]+lst2[i] for i in range(len(lst1))]
+
 
 #IMPLEMENT A CHECK THAT MAKES SURE PROPER # OF LABELS AND GRADING SHIFTS EXISTS.
 
@@ -487,16 +494,21 @@ class GradedMatFact(MatFact):
         self.deg_shift_0 = deg_shift_0
         self.deg_shift_1 = deg_shift_1
 
-        self.ds0mat = Matrix(ZZ, deg_shift_0)
-        self.ds1mat = Matrix(ZZ, deg_shift_1)
 
-    def tensor(self, other):
-        ds0 = self.ds0mat.tensor_product(other.ds0mat) + \
-            self.ds1mat.tensor_product(other.ds1mat)
-        ds1 = self.ds1mat.tensor_product(other.ds0mat) + \
-            self.ds0mat.tensor_product(other.ds1mat)
+    def tensor(self, other, shift0=None, shift1=None):
+        ds_0 = label_tensor(self.deg_shift_0, other.deg_shift_0) + \
+            label_tensor(self.deg_shift_1, other.deg_shift_1)
+        ds_1 = label_tensor(self.deg_shift_1, other.deg_shift_0) + \
+            label_tensor(self.deg_shift_0, other.deg_shift_1)
         mf = super().external_tensor(other)
-        return GradedMatFact(mf, list(ds0), list(ds1))
+        #print(list(ds0),list(ds1))i
+        if not shift:
+            return GradedMatFact(mf, ds_0, ds_1)
+        if shift0 or shift1:
+            if not len(shift0) == len(shift1) == len(ds_0):
+                raise Exception('shift0, shift1 must be an appropriately sized list of degree shifts')
+            else:
+                return GradedMatFact(mf, listsum(ds0,shift0), listsum(ds1,shift1))
 
 def is_homogeneous(powsrs):
     '''
@@ -509,6 +521,7 @@ def is_homogeneous(powsrs):
     else:
         return False
 
+
 #TODO: handle homogeneity/different rings (cf: KR Matrix Factorizations Prop 9? 10?)
 
 class LabelGMF(LabelMF, GradedMatFact):
@@ -516,18 +529,22 @@ class LabelGMF(LabelMF, GradedMatFact):
         LabelMF.__init__(self, d0, d1, labels_0, labels_1)
         GradedMatFact.__init__(self, d0, d1, deg_shift_0, deg_shift_1)
 
-    def tensor(self, other):
+    def tensor(self, other, shift0=None, shift1=None):
         lab_0 = label_tensor(self.labels_0, other.labels_0) + \
             label_tensor(self.labels_1,other.labels_1)
         lab_1 = label_tensor(self.labels_1, other.labels_0) + \
             label_tensor(self.labels_0,other.labels_1)
-        ds0 = self.ds0mat.tensor_product(other.ds0mat) + \
-            self.ds1mat.tensor_product(other.ds1mat)
-        ds1 = self.ds1mat.tensor_product(other.ds0mat) + \
-            self.ds0mat.tensor_product(other.ds1mat)
+        ds_0 = label_tensor(self.deg_shift_0, other.deg_shift_0) + \
+            label_tensor(self.deg_shift_1, other.deg_shift_1)
+        ds_1 = label_tensor(self.deg_shift_1, other.deg_shift_0) + \
+            label_tensor(self.deg_shift_0, other.deg_shift_1)
         mf = MatFact.external_tensor(self,other)
         if is_homogeneous(self.w + other.w):
-            return LabelGMF(mf.d0, mf.d1, lab_0, lab_1, ds0, ds1)
+            if shift0 or shift1:
+                if not len(shift0) == len(shift1) == len(ds_0):
+                    raise Exception('shift0, shift1 must be an appropriately sized list of degree shifts')
+                return LabelGMF(mf.d0, mf.d1, lab_0, lab_1, listsum(ds_0,shift0), listsum(ds_1,shift1))
+            return LabelGMF(mf.d0, mf.d1, lab_0, lab_1, ds_0, ds_1)
             #return LabelMF.tensor(self, other)
         else:
             return LabelMF.tensor(self, other)
@@ -539,7 +556,72 @@ class LabelGMF(LabelMF, GradedMatFact):
             return LabelGMF(-self.d1, -self.d0, self.labels_1, self.labels_0, self.deg_shift_1, self.deg_shift_0)
 
     def __repr__(self):
-        return f"R"
+        return f"R({self.labels_0}){{{self.deg_shift_0}}} -> R({self.labels_1}){{{self.deg_shift_1}}}" + \
+            f"-> R({self.labels_0}){{{self.deg_shift_0}}}" + f"\nR: {self.R}\nd0:\n{self.d0}" + \
+            f"\nd1:\n{self.d1}"
+
+    def direct_sum(self, other):
+        mf = MatFact.direct_sum(self,other)
+        return LabelGMF(mf.d0, mf.d1, self.labels_0 + other.labels_0, self.labels_1 + other.labels_1, \
+                        self.deg_shift_0 + other.deg_shift_0, self.deg_shift_1 + other.deg_shift_1)
+
+    def dual(self):
+        '''
+        consider the way this changes labels and gradings
+        '''
+        #return LabelGMF(self.d1.transpose(), self.d0.transpose(), )
+        #TODO: Make angle shifts, duals, respect grading shifts
+
+
+def Ct(x_str, y_str, z_str, w_str, n):
+    x, y, z, w = var(x_str), var(y_str), var(z_str), var(w_str)
+    R = QQ[x,y,z,w]
+    U1 = Matrix(R,[u_1(x,y,z,w,n)])
+    U2 = Matrix(R,[u_2(x,y,z,w,n)])
+    UU1 = Matrix(R, [x+y-z-w])
+    UU2 = Matrix(R, [x*y-z*w])
+    Rt1 = LabelGMF(U1, UU1, [''],[''],[0],[1-n])
+    Rt2 = LabelGMF(U2, UU2, [''],[''],[0],[3-n])
+    return Rt1.tensor(Rt2, [-1,-1],[-1,-1])
+
+
+def Lij(xi_str, xj_str,n):
+    '''
+    Matrix Factorization L^i_j assigned to arc going from j to i.
+    '''
+    xi, xj = var(xi_str), var(xj_str)
+    R = QQ[xi, xj]
+    pixixj = Matrix(R, [pi(xi,xj,n)])
+    xixj = Matrix(R, [xi-xj])
+    return LabelGMF(pixixj, xixj, [''],[''],[0],[1-n])
+
+
+class LabelGMFComplex():
+    def __init__(self, dct):
+        for i in dct.keys():
+            if not i in ZZ:
+                raise Exception(f'Complex grading {i} is not valid')
+            if not isinstance(dct[i], LabelGMF):
+                raise Exception(f'All dictionary entries must be LabelGMFs')
+
+        self.complex = dct
+
+    def tensor(self, other):
+        tensor = dict()
+        for i in self.complex.keys():
+            for j in other.complex.keys():
+                if not i+j in tensor.keys():
+                    tensor[i+j] = self.complex[i].tensor(other.complex[j])
+                else:
+                    tensor[i+j] = tensor[i+j].direct_sum(self.complex[i].tensor(other.complex[j]))
+                #gotta handle the maps!
+
+def Cp(x1_str, x2_str, x3_str, x4_str, n):
+    L14 = Lij(x1_str, x4_str, n)
+    L23 = Lij(x2_str, x3_str, n)
+    gamma0 = L14.tensor(L23)
+    gamma1 = C_t(x1_str, x2_str, x3_str, x4_str, n)
+
 
 
 Qxy = QQ['x','y']
@@ -550,12 +632,22 @@ Md0 = Matrix(Qxy, [pixy])
 Md1 = Matrix(Qxy, [x-y])
 Nd0 = Matrix(Qyz, [piyz])
 Nd1 = Matrix(Qyz, [y-z])
+u1 = u_1('x','y','z','w',4)
+u2 = u_2('x','y','z','w',4)
+Ring = QQ['x','y','z','w']
+uu1 = Matrix(Ring, [u1])
+uu1b = Matrix(Ring, [x+y-z-w])
+uu2 = Matrix(Ring, [u2])
+uu2b = Matrix(Ring, [x*y-z*w])
+Rt1 = LabelGMF(uu1, uu1b, [''], ['a'], [0], [-4])
+Rt2 = LabelGMF(uu2, uu2b, [''], ['b'], [0], [-2])
 
 mf1 = MatFact(Md0,Md1)
 mf2 = MatFact(Nd0,Nd1)
 LMF1 = LabelMF(mf1.d0, mf1.d1, [''], ['a'])
 LMF2 = LabelMF(mf2.d0, mf2.d1, [''], ['b'])
-LGMF1 = LabelGMF(mf1.d0, mf1.d1, [''],['a'], [2],[-1])
-LGMF2 = LabelGMF(mf2.d0, mf2.d1, [''],['b'], [2],[-1])
+LGMF1 = LabelGMF(mf1.d0, mf1.d1, [''],['a'], [0],[-1])
+LGMF2 = LabelGMF(mf2.d0, mf2.d1, [''],['b'], [0],[-1])
+
 
 #print(mf1.direct_sum(mf1.angle_shift()))
