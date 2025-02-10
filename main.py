@@ -7,6 +7,9 @@ from sage.homology.chain_complex import ChainComplex
 from sage.categories.category import Category
 from sage.categories.morphism import Morphism
 from sage.categories.modules import Modules
+import datetime
+
+now = datetime.datetime.now()
 #sage.knots.link.Link.new_method = new_method
 
 Z2 = IntegerModRing(2)
@@ -412,21 +415,25 @@ class MatFact():
         gens1 = list(self.R.gens())
         gens2 = list(other.R.gens())
         gens = gens1
+        gens_strs = [str(i) for i in gens]
         for i in gens2:
-            if i not in gens1:
+            if str(i) not in gens_strs:
                 gens.append(i)
+                gens_strs.append(str(i))
+        print(base, gens,gens2,gens1)
+        print(gens)
         R = base[gens]
         return R
 
 
     def direct_sum(self, other):
-        if self.R != other.R:
-            raise Exception('Base rings must match.')
-        if self.w != other.w:
-            raise Exception('Factorizations must have same w.')
-        #R = self.get_external_tensor_ring(other) <- DIDNT WORK BUT THIS IDEA
-        d0 = block_matrix(R, [[R(self.d0), 0], [0, R(other.d0)]])
-        d1 = block_matrix(R, [[R(self.d1), 0], [0, R(other.d1)]])
+        #if self.R != other.R:
+        #    raise Exception('Base rings must match.')
+        #if self.w != other.w:
+        #    raise Exception('Factorizations must have same w.')
+        R = self.get_external_tensor_ring(other) #<- DIDNT WORK BUT THIS IDEA
+        d0 = block_matrix(R, [[self.d0, 0], [0, other.d0]])
+        d1 = block_matrix(R, [[self.d1, 0], [0, other.d1]])
         return MatFact(d0, d1)
 
     @abstract_method
@@ -621,15 +628,21 @@ class LabelGMFComplex():
         tensor = dict()
         for i in self.complex.keys():
             for j in other.complex.keys():
+                print(i,j)
                 if not i+j in tensor.keys():
                     tensor[i+j] = self.complex[i].tensor(other.complex[j])
                 else:
                     tensor[i+j] = tensor[i+j].direct_sum(self.complex[i].tensor(other.complex[j]))
+        return LabelGMFComplex(tensor)
                 #gotta handle the maps!
                 #
+                #
     def __repr__(self):
+        ret = ""
         for i in self.complex.keys():
-            print(f'{i}: {self.complex[i]}\n')
+            ret += f"{i}: {self.complex[i]}\n"
+
+        return ret
 
 def Cp(x1_str, x2_str, x3_str, x4_str, n, sign):
     if not (sign == '+' or sign == '-'):
@@ -650,6 +663,43 @@ def Cp(x1_str, x2_str, x3_str, x4_str, n, sign):
         return LabelGMFComplex({0: gamma0.curly_shift([n,n],[n,n]), 1: gamma1.curly_shift([n-1,n-1], \
                                                                                           [n-1,n-1])})
     #U1 = Matrix(R, [[],[-1, 1]])
+    #
+
+def gen_tensor(alg1, alg2, gluing):
+    '''
+    Given two polynomial algebras k[x_a], k[x_b], return k[x_[a cup b]] subject to the relations
+    imposed by base = [(x_0,x_1)] (i.e., identifying x_0 and x_1 in the algebras resp.)
+    '''
+    if alg1.base() != alg2.base():
+        raise Exception('Algebras must be over the same base field.')
+    gens1 = alg1.gens()
+    gens2 = alg2.gens()
+    for relation in gluing:
+        if not relation[0] in gens1 or not relation[1] in gens2:
+            raise Exception('Relations must identify elements in gens1 with elements in gen2.')
+
+
+
+
+class MF():
+    def __init__(self, d0, d1):
+        self.d0 = d0
+        self.d1 = d1
+        if self.d0.base_ring() != self.d1.base_ring():
+            raise Exception('d0, d1 must take entries in the same base ring')
+        self.R = self.d0.base_ring()
+        self.w = 0 #define this as the first entry of d^2.
+
+    def cohomology(self):
+        # define this as Ker(d_i)/Im(d_i+1), i mod 2.
+        #
+        pass
+
+    def tensor(self, other):
+        # need this
+        pass
+
+
 
 
 
@@ -670,7 +720,16 @@ uu2 = Matrix(Ring, [u2])
 uu2b = Matrix(Ring, [x*y-z*w])
 Rt1 = LabelGMF(uu1, uu1b, [''], ['a'], [0], [-4])
 Rt2 = LabelGMF(uu2, uu2b, [''], ['b'], [0], [-2])
-
+Cmin = Cp('x','y','z','w',4,'-')
+Cplu = Cp('x','y','z','w',4,'+')
+C1 = Cp('x1','x2','x3','x4',2,'+')
+C2 = Cp('x3','x4','x5','x6',2,'+')
+C3 = Cp('x5','x6','x1','x2',2,'+')
+print(now)
+tref_khov_1 = C2.tensor(C3)
+tref_khov = C1.tensor(tref_khov_1)
+print(tref_khov)
+print(now)
 mf1 = MatFact(Md0,Md1)
 mf2 = MatFact(Nd0,Nd1)
 LMF1 = LabelMF(mf1.d0, mf1.d1, [''], ['a'])
