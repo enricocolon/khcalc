@@ -689,16 +689,28 @@ class MF():
     def cohomology(self):
         # define this as Ker(d_i)/Im(d_i+1), i mod 2.
         #
-        pass
+        ker0 = self.d0.right_kernel()
+        ker1 = self.d1.right_kernel()
+        # need to transpose for some reason?
+        im0 = self.d0.transpose().image()
+        im1 = self.d1.transpose().image()
+        h0 = ker0.quotient(im1)
+        h1 = ker1.quotient(im0)
+        return ker0, ker1, im0, im1, h0, h1
 
     def tensor(self, other):
         idM = matrix.identity(self.rank)
         idN = matrix.identity(other.rank)
-        d0 = block_matrix([[self.d0.tensor_product(idN), idM.tensor_product(other.d1)], \
-                           [idM.tensor_product(other.d0), -1*self.d1.tensor_product(idN)]])
-        d1 = block_matrix([[-1*self.d1.tensor_product(idN), idM.tensor_product(other.d1)], \
-                           [idM.tensor_product(other.d0), self.d0.tensor_product(idN)]])
+        d0 = block_matrix([[self.d0.tensor_product(idN),\
+                            idM.tensor_product(other.d1)],\
+                           [idM.tensor_product(other.d0),\
+                            -1*self.d1.tensor_product(idN)]])
+        d1 = block_matrix([[self.d1.tensor_product(idN),\
+                            idM.tensor_product(other.d1)],\
+                           [idM.tensor_product(other.d0),\
+                            -self.d0.tensor_product(idN)]])
         return MF(d0, d1)
+
 
 
 
@@ -712,6 +724,7 @@ piyz = pi('y','z',4)
 
 A = MF(Matrix([pixy]),Matrix([y-x]))
 B = MF(Matrix([pixy]),Matrix([x-y]))
+C = A.tensor(B)
 
 Md0 = Matrix(Qxy, [pixy])
 Md1 = Matrix(Qxy, [x-y])
