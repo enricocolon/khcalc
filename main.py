@@ -680,15 +680,11 @@ def gen_tensor(alg1, alg2, gluing):
 
 
 
-
 class MF():
     def __init__(self, d0, d1):
         self.d0 = d0
         self.d1 = d1
-        if self.d0.base_ring() != self.d1.base_ring():
-            raise Exception('d0, d1 must take entries in the same base ring')
-        self.R = self.d0.base_ring()
-        self.w = 0 #define this as the first entry of d^2.
+        self.rank = d0.ncols()
 
     def cohomology(self):
         # define this as Ker(d_i)/Im(d_i+1), i mod 2.
@@ -696,8 +692,14 @@ class MF():
         pass
 
     def tensor(self, other):
-        # need this
-        pass
+        idM = matrix.identity(self.rank)
+        idN = matrix.identity(other.rank)
+        d0 = block_matrix([[self.d0.tensor_product(idN), idM.tensor_product(other.d1)], \
+                           [idM.tensor_product(other.d0), -1*self.d1.tensor_product(idN)]])
+        d1 = block_matrix([[-1*self.d1.tensor_product(idN), idM.tensor_product(other.d1)], \
+                           [idM.tensor_product(other.d0), self.d0.tensor_product(idN)]])
+        return MF(d0, d1)
+
 
 
 
@@ -707,6 +709,10 @@ Qxy = QQ['x','y']
 Qyz = QQ['y','z']
 pixy = pi('x','y',4)
 piyz = pi('y','z',4)
+
+A = MF(Matrix([pixy]),Matrix([y-x]))
+B = MF(Matrix([pixy]),Matrix([x-y]))
+
 Md0 = Matrix(Qxy, [pixy])
 Md1 = Matrix(Qxy, [x-y])
 Nd0 = Matrix(Qyz, [piyz])
@@ -725,11 +731,11 @@ Cplu = Cp('x','y','z','w',4,'+')
 C1 = Cp('x1','x2','x3','x4',2,'+')
 C2 = Cp('x3','x4','x5','x6',2,'+')
 C3 = Cp('x5','x6','x1','x2',2,'+')
-print(now)
-tref_khov_1 = C2.tensor(C3)
-tref_khov = C1.tensor(tref_khov_1)
-print(tref_khov)
-print(now)
+#print(now)
+#tref_khov_1 = C2.tensor(C3)
+#tref_khov = C1.tensor(tref_khov_1)
+#print(tref_khov)
+#print(now)
 mf1 = MatFact(Md0,Md1)
 mf2 = MatFact(Nd0,Nd1)
 LMF1 = LabelMF(mf1.d0, mf1.d1, [''], ['a'])
