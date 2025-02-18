@@ -1,4 +1,5 @@
 import os
+import itertools
 from sage.knots.knot import Link
 from sage.knots.knot import Knot
 import sage.knots.knotinfo
@@ -704,11 +705,26 @@ class MF():
     def grading_shift(self, shift):
         return MF(self.d0, self.d1, [gr-shift for gr in self.gradings0],[gr-shift for gr in self.gradings1])
 
+
+    def get_ring(self):
+        if set(self.d0.variables()) in set(self.d1.variables()):
+            basegens = self.d1.variables()
+        else:
+            basegens = self.d0.variables()
+        basegens_str = ", ".join(str(var) for var in basegens)
+        return QQ[basegens_str]
+
+    def d0_string(self):
+        return m2matrix_input(self.d0.change_ring(self.get_ring()))
+
+    def d1_string(self):
+        return m2matrix_input(self.d1.change_ring(self.get_ring()))
+
     def cohomology(self):
         # define this as Ker(d_i)/Im(d_i+1), i mod 2.
         #
         rank = self.d0.ncols()
-        print(rank,self.d0.nrows())
+        #print(rank,self.d0.nrows())
         #get the base ring generators--add a check to make sure this works
         if set(self.d0.variables()) in set(self.d1.variables()):
             basegens = self.d1.variables()
@@ -719,9 +735,9 @@ class MF():
         macaulay2.set("R", f"QQ[{basegens_str}]")
         macaulay2.set("M", f"R^{rank}")
         M = macaulay2("M")
-        print(basegens_str)
-        print(m2matrix_input(self.d0.change_ring(QQ[basegens_str])))
-        print(m2matrix_input(self.d1.change_ring(QQ[basegens_str])))
+        #print(basegens_str)
+        #print(m2matrix_input(self.d0.change_ring(QQ[basegens_str])))
+        #print(m2matrix_input(self.d1.change_ring(QQ[basegens_str])))
         #macaulay2.eval(f"F = matrix{m2matrix_input(self.d0)}")
         #macaulay2.eval(f"G = matrix{m2matrix_input(self.d1)}")
         #macaulay2.set("F", f"matrix{m2matrix_input(self.d0)}")
@@ -730,11 +746,13 @@ class MF():
         F = f"matrix{m2matrix_input(self.d0.change_ring(QQ[basegens_str]))}"
         G = f"matrix{m2matrix_input(self.d1.change_ring(QQ[basegens_str]))}"
 
-        print(F)
+        #print(F)
         macaulay2.set("Fmap", f"map(M,M,{F})")
         macaulay2.set("Gmap", f"map(M,M,{G})")
-        macaulay2.set("H0", "homology(Fmap,Gmap)") #prepend with prune to get minimal pres
-        macaulay2.set("H1", "homology(Gmap,Fmap)")
+        macaulay2.set("H0", "prune homology(Fmap,Gmap)") #prepend with prune to get minimal pres
+        macaulay2.set("H1", "prune homology(Gmap,Fmap)")
+        #macaulay2.eval("prune H0")
+        #macaulay2.eval("prune H1")
         H0 = macaulay2("H0")
         H1 = macaulay2("H1")
 
@@ -796,6 +814,83 @@ def C_ijkl(xi_str,xj_str,xk_str,xl_str,n):
     return tensor.grading_shift(-1)
 
 
+def opposite(binary_list):
+    ans = []
+    for i in binary_list:
+        if i == 1:
+            ans.append(0)
+        if i == 0:
+            ans.append(1)
+    return ans
+
+def get_crossing_factorization(crossing,n,resolution_type,sign):
+    '''
+    sign in {1,-1}
+    resolution type in {'wide', 'nowide'}
+    '''
+    [a,b,c,d] = crossing
+    if resolution_type in {'wide', 1}:
+        if sign == 1:
+            ans = C_ijkl(d,a,c,b,n)
+        if sign == -1:
+            ans = C_ijkl(a,b,d,c,n)
+    if resolution_type in {'nowide',0}:
+        if sign == 1:
+            ans = L_ij(d,c,n).tensor(L_ij(a,b,n))
+        if sign == -1:
+            ans = L_ij(a,d,n).tensor(L_ij(b,c,n))
+    #print(ans.d0*ans.d1)
+    return ans
+
+def pd_code_to_matfacts(knotlike, n):
+    '''
+    Given a knotlike object, generates all of the relevant matrix factorizations
+    '''
+    pre_pd = pd_code(knotlike)
+    pd = []
+    for crossing in pre_pd:
+        pd.append([f"x{i}" for i in crossing])
+    signs = []
+    for crossing in pd:
+        if crossing[1] > crossing[3]:
+            signs.append(1)
+        elif crossing[1] < crossing[3]:
+            signs.append(-1)
+        else:
+            raise Exception('Invalid pdcode.')
+    matfacts = dict()
+    resolutions = itertools.product([0,1], repeat=len(signs))
+    for resolution in resolutions:
+        #print(resolution, signs)
+        matfacts[resolution] = {'complex_grading': -1*sum(resolution[i]*signs[i] for i in range(len(signs))), \
+                                'internal_grading': n*sum(resolution[i]*signs[i] for i in range(len(signs))) + \
+                                (n-1)*sum(opposite(resolution)[i]*signs[i] for i in range(len(signs)))}
+    for resolution in matfacts.keys():
+        #print(resolution)
+        factorization = get_crossing_factorization(pd[0], n, resolution[0], signs[0])
+        if resolution == (1,1,1):
+            print(factorization.d0*factorization.d1)
+        for i in range(1, len(signs)):
+            term = get_crossing_factorization(pd[i],n,resolution[i],signs[i])
+            factorization = \
+                factorization.tensor(term)
+            if resolution == (1,1,1):
+                print(term.d0*term.d1)
+            #print(factorization.rank)
+        matfacts[resolution]['factorization'] = factorization
+        #matfacts[resolution]['d0'] = factorization.d0_string()
+        #matfacts[resolution]['d1'] = factorization.d1_string()
+
+    return matfacts
+
+    
+tref_khov_2 = pd_code_to_matfacts(K,2)
+
+L12 = L_ij('x','y',2)
+L21 = L_ij('y','x',2)
+Loop = L12.tensor(L21)
+print(Loop.cohomology())
+
 Qxy = QQ['x','y']
 Qyz = QQ['y','z']
 pixy = pi('x','y',4)
@@ -809,9 +904,10 @@ CC1 = C_ijkl('a','b','c','d',4)
 CC2 = C_ijkl('c','d','e','f',4)
 CC3 = C_ijkl('e','f','a','b',4)
 
-inter = CC1.tensor(CC2)
-CC = inter.tensor(CC3)
-print(CC.cohomology(), 'foo')
+# inter = CC1.tensor(CC2)
+# CC = inter.tensor(CC3)
+# print('foo', CC.d0_string())
+# print('bar', CC.d1_string())
 
 Md0 = Matrix(Qxy, [pixy])
 Md1 = Matrix(Qxy, [x-y])
