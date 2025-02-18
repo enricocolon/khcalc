@@ -1,3 +1,4 @@
+import os
 from sage.knots.knot import Link
 from sage.knots.knot import Knot
 import sage.knots.knotinfo
@@ -420,8 +421,8 @@ class MatFact():
             if str(i) not in gens_strs:
                 gens.append(i)
                 gens_strs.append(str(i))
-        print(base, gens,gens2,gens1)
-        print(gens)
+        #print(base, gens,gens2,gens1)
+        #print(gens)
         R = base[gens]
         return R
 
@@ -680,23 +681,85 @@ def gen_tensor(alg1, alg2, gluing):
 
 
 
+def m2matrix_input(matrix):
+    '''
+    Translates a Sage Matrix into a Macaulay Matrix
+    '''
+    lists = [list(r) for r in matrix.rows()]
+    m2input = str(lists).replace('[','{').replace(']','}')
+    return m2input
+
+macaulay2.eval("setMaxMemoryUsage(10*1024^3)")
 class MF():
-    def __init__(self, d0, d1):
+    def __init__(self, d0, d1, gradings0, gradings1):
         self.d0 = d0
         self.d1 = d1
         self.rank = d0.ncols()
+        if len(gradings0) != self.rank or len(gradings1) != self.rank:
+            raise Exception('Number of gradings does not match the rank.')
+        self.gradings0 = gradings0
+        self.gradings1 = gradings1
+
+
+    def grading_shift(self, shift):
+        return MF(self.d0, self.d1, [gr-shift for gr in self.gradings0],[gr-shift for gr in self.gradings1])
 
     def cohomology(self):
         # define this as Ker(d_i)/Im(d_i+1), i mod 2.
         #
-        ker0 = self.d0.right_kernel()
-        ker1 = self.d1.right_kernel()
-        # need to transpose for some reason?
-        im0 = self.d0.transpose().image()
-        im1 = self.d1.transpose().image()
-        h0 = ker0.quotient(im1)
-        h1 = ker1.quotient(im0)
-        return ker0, ker1, im0, im1, h0, h1
+        rank = self.d0.ncols()
+        print(rank,self.d0.nrows())
+        #get the base ring generators--add a check to make sure this works
+        if set(self.d0.variables()) in set(self.d1.variables()):
+            basegens = self.d1.variables()
+        else:
+            basegens = self.d0.variables()
+        basegens_str = ", ".join(str(var) for var in basegens)
+
+        macaulay2.set("R", f"QQ[{basegens_str}]")
+        macaulay2.set("M", f"R^{rank}")
+        M = macaulay2("M")
+        print(basegens_str)
+        print(m2matrix_input(self.d0.change_ring(QQ[basegens_str])))
+        print(m2matrix_input(self.d1.change_ring(QQ[basegens_str])))
+        #macaulay2.eval(f"F = matrix{m2matrix_input(self.d0)}")
+        #macaulay2.eval(f"G = matrix{m2matrix_input(self.d1)}")
+        #macaulay2.set("F", f"matrix{m2matrix_input(self.d0)}")
+        #macaulay2.set("G", f"matrix{m2matrix_input(self.d1)}")
+        #F = macaulay2("F")
+        F = f"matrix{m2matrix_input(self.d0.change_ring(QQ[basegens_str]))}"
+        G = f"matrix{m2matrix_input(self.d1.change_ring(QQ[basegens_str]))}"
+
+        print(F)
+        macaulay2.set("Fmap", f"map(M,M,{F})")
+        macaulay2.set("Gmap", f"map(M,M,{G})")
+        macaulay2.set("H0", "homology(Fmap,Gmap)") #prepend with prune to get minimal pres
+        macaulay2.set("H1", "homology(Gmap,Fmap)")
+        H0 = macaulay2("H0")
+        H1 = macaulay2("H1")
+
+        return H0,H1
+
+
+    # def tensor(self, other):
+    #     idM = matrix.identity(self.rank)
+    #     idN = matrix.identity(other.rank)
+    #     d0 = block_matrix([[self.d0,\
+    #                         other.d1],\
+    #                        [other.d0,\
+    #                         -1*self.d1]], subdivide=False)
+    #     d1 = block_matrix([[self.d1,\
+    #                         other.d1],\
+    #                        [other.d0,\
+    #                         -self.d0]], subdivide=False)
+    #     ds_0 = label_tensor(self.gradings0, other.gradings0) + \
+    #         label_tensor(self.gradings1, other.gradings1)
+    #     ds_1 = label_tensor(self.gradings1, other.gradings0) + \
+    #         label_tensor(self.gradings0, other.gradings1)
+    #     return MF(d0,d1,ds_0,ds_1)
+
+
+
 
     def tensor(self, other):
         idM = matrix.identity(self.rank)
@@ -704,17 +767,33 @@ class MF():
         d0 = block_matrix([[self.d0.tensor_product(idN),\
                             idM.tensor_product(other.d1)],\
                            [idM.tensor_product(other.d0),\
-                            -1*self.d1.tensor_product(idN)]])
+                            -1*self.d1.tensor_product(idN)]], subdivide=False)
         d1 = block_matrix([[self.d1.tensor_product(idN),\
                             idM.tensor_product(other.d1)],\
                            [idM.tensor_product(other.d0),\
-                            -self.d0.tensor_product(idN)]])
-        return MF(d0, d1)
+                            -self.d0.tensor_product(idN)]], subdivide=False)
+        ds_0 = label_tensor(self.gradings0, other.gradings0) + \
+            label_tensor(self.gradings1, other.gradings1)
+        ds_1 = label_tensor(self.gradings1, other.gradings0) + \
+            label_tensor(self.gradings0, other.gradings1)
+        return MF(d0,d1,ds_0,ds_1)
 
+def L_ij(xi_str,xj_str,n):
+    '''
+    return matrix factorization L_i^j
+    '''
+    xi,xj = var(xi_str), var(xj_str)
+    pixy = pi(xi,xj,n)
+    return MF(Matrix([pixy]), Matrix([xj-xi]),[0],[1-n])
 
-
-
-
+def C_ijkl(xi_str,xj_str,xk_str,xl_str,n):
+    xi,xj,xk,xl = var(xi_str),var(xj_str),var(xk_str),var(xl_str)
+    u1 = u_1(xi,xj,xk,xl,n)
+    u2 = u_2(xi,xj,xk,xl,n)
+    tens1 = MF(Matrix([u1]), Matrix([xi+xj-xk-xl]),[0],[1-n])
+    tens2 = MF(Matrix([u2]), Matrix([xi*xj-xk*xl]),[0],[3-n])
+    tensor = tens1.tensor(tens2)
+    return tensor.grading_shift(-1)
 
 
 Qxy = QQ['x','y']
@@ -722,9 +801,17 @@ Qyz = QQ['y','z']
 pixy = pi('x','y',4)
 piyz = pi('y','z',4)
 
-A = MF(Matrix([pixy]),Matrix([y-x]))
-B = MF(Matrix([pixy]),Matrix([x-y]))
-C = A.tensor(B)
+#A = MF(Matrix([pixy]),Matrix([y-x]),[1],[-2])
+#B = MF(Matrix([pixy]),Matrix([x-y]),[3],[-4])
+#C = A.tensor(B)
+
+CC1 = C_ijkl('a','b','c','d',4)
+CC2 = C_ijkl('c','d','e','f',4)
+CC3 = C_ijkl('e','f','a','b',4)
+
+inter = CC1.tensor(CC2)
+CC = inter.tensor(CC3)
+print(CC.cohomology(), 'foo')
 
 Md0 = Matrix(Qxy, [pixy])
 Md1 = Matrix(Qxy, [x-y])
