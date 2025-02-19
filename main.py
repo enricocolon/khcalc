@@ -851,11 +851,17 @@ def pd_code_to_matfacts(knotlike, n):
     for crossing in pre_pd:
         pd.append([f"x{i}" for i in crossing])
     signs = []
-    for crossing in pd:
-        if crossing[1] > crossing[3]:
-            signs.append(1)
-        elif crossing[1] < crossing[3]:
-            signs.append(-1)
+    for crossing in pre_pd: #HERE IS THE ISSUE. YOU'RE NOT HANDLING WRAPPING.
+        if abs(crossing[1]-crossing[3]) == 1:
+            if crossing[1] > crossing[3]:
+                signs.append(1)
+            elif crossing[1] < crossing[3]:
+                signs.append(-1)
+        elif abs(crossing[1]-crossing[3]) > 1:
+            if crossing[1] > crossing[3]:
+                signs.append(-1)
+            elif crossing[1] < crossing[3]:
+                signs.append(1)
         else:
             raise Exception('Invalid pdcode.')
     matfacts = dict()
@@ -868,14 +874,14 @@ def pd_code_to_matfacts(knotlike, n):
     for resolution in matfacts.keys():
         #print(resolution)
         factorization = get_crossing_factorization(pd[0], n, resolution[0], signs[0])
-        if resolution == (1,1,1):
-            print(factorization.d0*factorization.d1)
+        #if resolution == (1,1,1):
+        #    print(factorization.d0*factorization.d1)
         for i in range(1, len(signs)):
             term = get_crossing_factorization(pd[i],n,resolution[i],signs[i])
             factorization = \
                 factorization.tensor(term)
-            if resolution == (1,1,1):
-                print(term.d0*term.d1)
+        #    if resolution == (1,1,1):
+        #        print(term.d0*term.d1)
             #print(factorization.rank)
         matfacts[resolution]['factorization'] = factorization
         #matfacts[resolution]['d0'] = factorization.d0_string()
@@ -889,7 +895,7 @@ tref_khov_2 = pd_code_to_matfacts(K,2)
 L12 = L_ij('x','y',2)
 L21 = L_ij('y','x',2)
 Loop = L12.tensor(L21)
-print(Loop.cohomology())
+#print(Loop.cohomology())
 
 Qxy = QQ['x','y']
 Qyz = QQ['y','z']
