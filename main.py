@@ -720,6 +720,16 @@ class MF():
     def d1_string(self):
         return m2matrix_input(self.d1.change_ring(self.get_ring()))
 
+    def w(self):
+        if self.d0*self.d1 != self.d1*self.d0:
+            raise Exception('w is ill-defined, d0*d1 is not d1*d0')
+        d_sqr = self.d0*self.d1
+        if not d_sqr.is_diagonal():
+            raise Exception('w is ill-defined, d0*d1 is not diagonal')
+        if len(set(d_sqr.diagonal())) != 1:
+            raise Exception('w is ill-defined, d0*d1 is not of form w*Id')
+        return d_sqr[0][0].expand()
+
     def cohomology(self):
         # define this as Ker(d_i)/Im(d_i+1), i mod 2.
         #
@@ -801,8 +811,8 @@ def L_ij(xi_str,xj_str,n):
     return matrix factorization L_i^j
     '''
     xi,xj = var(xi_str), var(xj_str)
-    pixy = pi(xi,xj,n)
-    return MF(Matrix([pixy]), Matrix([xj-xi]),[0],[1-n])
+    pixy = pi(xj,xi,n)
+    return MF(Matrix([pixy]), Matrix([xj-xi]),[0],[1-n]) #WHY IS THE SIGN BACKWARDS??????
 
 def C_ijkl(xi_str,xj_str,xk_str,xl_str,n):
     xi,xj,xk,xl = var(xi_str),var(xj_str),var(xk_str),var(xl_str)
@@ -831,15 +841,22 @@ def get_crossing_factorization(crossing,n,resolution_type,sign):
     [a,b,c,d] = crossing
     if resolution_type in {'wide', 1}:
         if sign == 1:
-            ans = C_ijkl(d,a,c,b,n)
+            tag = ('C',d,a,c,b,n)
+            #ans = C_ijkl(d,a,c,b,n)
+            ans = C_ijkl(b,c,a,d,n)
         if sign == -1:
-            ans = C_ijkl(a,b,d,c,n)
+            tag = ('C',a,b,d,c,n)
+            #ans = C_ijkl(a,b,d,c,n)
+            ans = C_ijkl(c,b,d,a,n)
     if resolution_type in {'nowide',0}:
         if sign == 1:
-            ans = L_ij(d,c,n).tensor(L_ij(a,b,n))
+            tag = ('L',a,b,d,c)
+            ans = L_ij(a,b,n).tensor(L_ij(d,c,n))
         if sign == -1:
+            tag = ('L',a,d,b,c)
             ans = L_ij(a,d,n).tensor(L_ij(b,c,n))
     #print(ans.d0*ans.d1)
+    #print(tag, ans.w())
     return ans
 
 def pd_code_to_matfacts(knotlike, n):
@@ -889,8 +906,22 @@ def pd_code_to_matfacts(knotlike, n):
 
     return matfacts
 
+def dict_cohomology(my_dict):
+    for key in my_dict.keys():
+        print(key, my_dict[key]['factorization'].cohomology())
     
 tref_khov_2 = pd_code_to_matfacts(K,2)
+
+def test_complex(mf_dict):
+    for resolution in mf_dict.keys():
+        res = mf_dict[resolution]['factorization']
+        d0 = res.d0
+        d1 = res.d1
+        if d0*d1 == d1*d0:
+            print(resolution, str(res.w()))
+        else:
+            raise Exception('d0*d1 is not d1*d0')
+
 
 L12 = L_ij('x','y',2)
 L21 = L_ij('y','x',2)
