@@ -912,6 +912,7 @@ def dict_cohomology(my_dict):
         print(key, fac.cohomology(), fac.gradings0, fac.gradings1)
     
 tref_khov_2 = pd_code_to_matfacts(K,2)
+tref_khov_3 = pd_code_to_matfacts(K,3)
 
 def test_complex(mf_dict):
     for resolution in mf_dict.keys():
