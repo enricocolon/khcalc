@@ -839,7 +839,7 @@ def get_crossing_factorization(crossing,n,resolution_type,sign):
     resolution type in {'wide', 'nowide'}
     '''
     [a,b,c,d] = crossing
-    if resolution_type in {'wide', 1}:
+    if resolution_type == 1: # 1 <-> WIDE resolution
         if sign == 1:
             tag = ('C',d,a,c,b,n)
             #ans = C_ijkl(d,a,c,b,n)
@@ -848,7 +848,7 @@ def get_crossing_factorization(crossing,n,resolution_type,sign):
             tag = ('C',a,b,d,c,n)
             #ans = C_ijkl(a,b,d,c,n)
             ans = C_ijkl(c,b,d,a,n)
-    if resolution_type in {'nowide',0}:
+    if resolution_type == 0: # 0 <-> NO WIDE resolution
         if sign == 1:
             tag = ('L',a,b,d,c)
             ans = L_ij(a,b,n).tensor(L_ij(d,c,n))
@@ -908,7 +908,8 @@ def pd_code_to_matfacts(knotlike, n):
 
 def dict_cohomology(my_dict):
     for key in my_dict.keys():
-        print(key, my_dict[key]['factorization'].cohomology())
+        fac = my_dict[key]['factorization']
+        print(key, fac.cohomology(), fac.gradings0, fac.gradings1)
     
 tref_khov_2 = pd_code_to_matfacts(K,2)
 
