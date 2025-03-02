@@ -763,30 +763,21 @@ class MF():
         macaulay2.set("H1", "prune homology(Gmap,Fmap)")
         #macaulay2.eval("prune H0")
         #macaulay2.eval("prune H1")
-        H0 = macaulay2("H0")
-        H1 = macaulay2("H1")
-
-        return H0,H1
-
-
-    # def tensor(self, other):
-    #     idM = matrix.identity(self.rank)
-    #     idN = matrix.identity(other.rank)
-    #     d0 = block_matrix([[self.d0,\
-    #                         other.d1],\
-    #                        [other.d0,\
-    #                         -1*self.d1]], subdivide=False)
-    #     d1 = block_matrix([[self.d1,\
-    #                         other.d1],\
-    #                        [other.d0,\
-    #                         -self.d0]], subdivide=False)
-    #     ds_0 = label_tensor(self.gradings0, other.gradings0) + \
-    #         label_tensor(self.gradings1, other.gradings1)
-    #     ds_1 = label_tensor(self.gradings1, other.gradings0) + \
-    #         label_tensor(self.gradings0, other.gradings1)
-    #     return MF(d0,d1,ds_0,ds_1)
-
-
+        H0_pres = macaulay2.set("P0", "presentation H0")
+        H1_pres = macaulay2.set("P1", "presentation H1")
+        H0gens = str(macaulay2("toString entries P0"))
+        H1gens = str(macaulay2("toString entries P1"))
+        gens0 =  H0gens[2:-2].split(', ')
+        gens1 =  H1gens[2:-2].split(', ')
+        def get_quotient(gens):
+            ring = QQ[f'{basegens_str}']
+            if gens == ['']:
+                return Ring(0)
+            ideal = ring.ideal(gens)
+            return ring.quotient(ideal)
+        h0 = get_quotient(gens0)
+        h1 = get_quotient(gens1)
+        return macaulay2("P0"), macaulay2("P1")
 
 
     def tensor(self, other):
@@ -823,6 +814,29 @@ def C_ijkl(xi_str,xj_str,xk_str,xl_str,n):
     tensor = tens1.tensor(tens2)
     return tensor.grading_shift(-1)
 
+def C_unzip_ijkl(xi_str,xj_str,xk_str,xl_str,n):
+    xi,xj,xk,xl = var(xi_str),var(xj_str),var(xk_str),var(xl_str)
+    Lli = L_ij(xl_str,xi_str,n)
+    Lkj = L_ij(xk_str,xj_str,n)
+    return Lli.tensor(Lkj)
+
+def crossing_complex(xi_str,xj_str,xk_str,xl_str,n,mu,lamb):
+    xi,xj,xk,xl = var(xi_str),var(xj_str),var(xk_str),var(xl_str)
+    u1 = u_1(xi,xj,xk,xl,n)
+    u2 = u_2(xi,xj,xk,xl,n)
+    pijk = pi(xj,xk,n)
+    zipped = C_ijkl(xi_str,xj_str,xk_str,xl_str,n)
+    unzipped = C_unzip_ijkl(xi_str,xj_str,xk_str,xl_str,n)
+    a1 = (mu-1)*u2+(u1+x1*u2-pijk)/(xi-xl)
+    a2 = lamb*u2+(u1+xi*u2-pijk)/(xl-xi)
+    a3 = lamb*(xk+xl-xi-xj)+xi-xk
+    U0 = Matrix([[xl-xj+mu*(xi+xj-xk-xl),0],\
+                 [a1,1]])
+    U1 = Matrix([[xl+mu*(xi-xl),mu*(xj-xk)-xj],\
+                 [-1,1]])
+    V0 = Matrix([[1,0],[a2,a3]])
+    V1 = Matrix([[1, xk+lamb*(xj-xk)],[1, xi+lamb*(xl-xi)]])
+    return V0*U0,V1*U1,U0*V0,U1*V1
 
 def opposite(binary_list):
     ans = []
@@ -909,7 +923,7 @@ def pd_code_to_matfacts(knotlike, n):
 def dict_cohomology(my_dict):
     for key in my_dict.keys():
         fac = my_dict[key]['factorization']
-        print(key, fac.cohomology(), fac.gradings0, fac.gradings1)
+        print(key, fac.cohomology())
     
 tref_khov_2 = pd_code_to_matfacts(K,2)
 tref_khov_3 = pd_code_to_matfacts(K,3)
