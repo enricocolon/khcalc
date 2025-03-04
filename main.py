@@ -820,7 +820,30 @@ def C_unzip_ijkl(xi_str,xj_str,xk_str,xl_str,n):
     Lkj = L_ij(xk_str,xj_str,n)
     return Lli.tensor(Lkj)
 
-def crossing_complex(xi_str,xj_str,xk_str,xl_str,n,mu,lamb):
+def chi_0(xi_str,xj_str,xk_str,xl_str,n,mu):
+    xi,xj,xk,xl = var(xi_str),var(xj_str),var(xk_str),var(xl_str)
+    u1 = u_1(xi,xj,xk,xl,n)
+    u2 = u_2(xi,xj,xk,xl,n)
+    pijk = pi(xj,xk,n)
+    a1 = (mu-1)*u2+(u1+x1*u2-pijk)/(xi-xl)
+    U0 = Matrix([[xl-xj+mu*(xi+xj-xk-xl),0],\
+                 [a1,1]])
+    U1 = Matrix([[xl+mu*(xi-xl),mu*(xj-xk)-xj],\
+                 [-1,1]])
+    return U0, U1
+
+def chi_1(xi_str,xj_str,xk_str,xl_str,n,lamb):
+    xi,xj,xk,xl = var(xi_str),var(xj_str),var(xk_str),var(xl_str)
+    u1 = u_1(xi,xj,xk,xl,n)
+    u2 = u_2(xi,xj,xk,xl,n)
+    pijk = pi(xj,xk,n)
+    a2 = lamb*u2+(u1+xi*u2-pijk)/(xl-xi)
+    a3 = lamb*(xk+xl-xi-xj)+xi-xk
+    V0 = Matrix([[1,0],[a2,a3]])
+    V1 = Matrix([[1, xk+lamb*(xj-xk)],[1, xi+lamb*(xl-xi)]])
+    return V0, V1
+
+def crossing_complex(xi_str,xj_str,xk_str,xl_str,n,mu,lamb,sign):
     xi,xj,xk,xl = var(xi_str),var(xj_str),var(xk_str),var(xl_str)
     u1 = u_1(xi,xj,xk,xl,n)
     u2 = u_2(xi,xj,xk,xl,n)
@@ -836,6 +859,18 @@ def crossing_complex(xi_str,xj_str,xk_str,xl_str,n,mu,lamb):
                  [-1,1]])
     V0 = Matrix([[1,0],[a2,a3]])
     V1 = Matrix([[1, xk+lamb*(xj-xk)],[1, xi+lamb*(xl-xi)]])
+    if sign == -1:
+        complex = {
+            0: unzipped,
+            1: zipped
+        }
+    if sign == 1:
+        complex = {
+            -1: zipped,
+            0: unzipped
+        }
+    elif sign not in {1,-1}:
+        raise Exception('invalid sign')
     return V0*U0,V1*U1,U0*V0,U1*V1
 
 def opposite(binary_list):
@@ -857,21 +892,41 @@ def get_crossing_factorization(crossing,n,resolution_type,sign):
         if sign == 1:
             tag = ('C',d,a,c,b,n)
             #ans = C_ijkl(d,a,c,b,n)
-            ans = C_ijkl(b,c,a,d,n)
+            ans = C_ijkl(c,b,d,a,n) #following figure 5 convention
         if sign == -1:
             tag = ('C',a,b,d,c,n)
             #ans = C_ijkl(a,b,d,c,n)
-            ans = C_ijkl(c,b,d,a,n)
+            ans = C_ijkl(d,c,a,b,n)
     if resolution_type == 0: # 0 <-> NO WIDE resolution
         if sign == 1:
             tag = ('L',a,b,d,c)
-            ans = L_ij(a,b,n).tensor(L_ij(d,c,n))
+            ans = L_ij(d,c,n).tensor(L_ij(a,b,n))
         if sign == -1:
             tag = ('L',a,d,b,c)
             ans = L_ij(a,d,n).tensor(L_ij(b,c,n))
     #print(ans.d0*ans.d1)
     #print(tag, ans.w())
     return ans
+
+def get_crossing_sign(crossing):
+    '''
+    Given a crossing in a pd_code, return the sign of the crossing.
+    '''
+    if abs(crossing[1]-crossing[3]) == 1:
+        if crossing[1] > crossing[3]:
+            return 1
+        elif crossing[1] < crossing[3]:
+            return -1
+    elif abs(crossing[1]-crossing[3]) > 1:
+        if crossing[1] > crossing[3]:
+            return -1
+        elif crossing[1] < crossing[3]:
+            return 1
+    else:
+        raise Exception('Invalid crossing.')
+
+def chi_crossing(crossing, num_crossings, crossing_index, chi_index):
+    pass
 
 def pd_code_to_matfacts(knotlike, n):
     '''
@@ -883,18 +938,7 @@ def pd_code_to_matfacts(knotlike, n):
         pd.append([f"x{i}" for i in crossing])
     signs = []
     for crossing in pre_pd: #HERE IS THE ISSUE. YOU'RE NOT HANDLING WRAPPING.
-        if abs(crossing[1]-crossing[3]) == 1:
-            if crossing[1] > crossing[3]:
-                signs.append(1)
-            elif crossing[1] < crossing[3]:
-                signs.append(-1)
-        elif abs(crossing[1]-crossing[3]) > 1:
-            if crossing[1] > crossing[3]:
-                signs.append(-1)
-            elif crossing[1] < crossing[3]:
-                signs.append(1)
-        else:
-            raise Exception('Invalid pdcode.')
+        signs.append(get_crossing_sign(crossing))
     matfacts = dict()
     resolutions = itertools.product([0,1], repeat=len(signs))
     for resolution in resolutions:
