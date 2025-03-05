@@ -816,9 +816,11 @@ def C_ijkl(xi_str,xj_str,xk_str,xl_str,n):
 
 def C_unzip_ijkl(xi_str,xj_str,xk_str,xl_str,n):
     xi,xj,xk,xl = var(xi_str),var(xj_str),var(xk_str),var(xl_str)
-    Lli = L_ij(xl_str,xi_str,n)
-    Lkj = L_ij(xk_str,xj_str,n)
-    return Lli.tensor(Lkj)
+    #Lli = L_ij(xl_str,xi_str,n)
+    #Lkj = L_ij(xk_str,xj_str,n)
+    Lki = L_ij(xk_str,xi_str,n)
+    Llj = L_ij(xl_str,xj_str,n)
+    return Lki.tensor(Llj)
 
 def chi_0(xi_str,xj_str,xk_str,xl_str,n,mu):
     xi,xj,xk,xl = var(xi_str),var(xj_str),var(xk_str),var(xl_str)
@@ -890,19 +892,19 @@ def get_crossing_factorization(crossing,n,resolution_type,sign):
     [a,b,c,d] = crossing
     if resolution_type == 1: # 1 <-> WIDE resolution
         if sign == 1:
-            tag = ('C',d,a,c,b,n)
+            #tag = ('C',d,a,c,b,n)
             #ans = C_ijkl(d,a,c,b,n)
             ans = C_ijkl(c,b,d,a,n) #following figure 5 convention
         if sign == -1:
-            tag = ('C',a,b,d,c,n)
+            #tag = ('C',a,b,d,c,n)
             #ans = C_ijkl(a,b,d,c,n)
             ans = C_ijkl(d,c,a,b,n)
     if resolution_type == 0: # 0 <-> NO WIDE resolution
         if sign == 1:
-            tag = ('L',a,b,d,c)
+            #tag = ('L',a,b,d,c)
             ans = L_ij(d,c,n).tensor(L_ij(a,b,n))
         if sign == -1:
-            tag = ('L',a,d,b,c)
+            #tag = ('L',a,d,b,c)
             ans = L_ij(a,d,n).tensor(L_ij(b,c,n))
     #print(ans.d0*ans.d1)
     #print(tag, ans.w())
@@ -925,8 +927,66 @@ def get_crossing_sign(crossing):
     else:
         raise Exception('Invalid crossing.')
 
-def chi_crossing(crossing, num_crossings, crossing_index, chi_index):
-    pass
+
+        # idM = matrix.identity(self.rank)
+        # idN = matrix.identity(other.rank)
+        # d0 = block_matrix([[self.d0.tensor_product(idN),\
+        #                     idM.tensor_product(other.d1)],\
+        #                    [idM.tensor_product(other.d0),\
+        #                     -1*self.d1.tensor_product(idN)]], subdivide=False)
+        # d1 = block_matrix([[self.d1.tensor_product(idN),\
+        #                     idM.tensor_product(other.d1)],\
+        #                    [idM.tensor_product(other.d0),\
+        #                     -self.d0.tensor_product(idN)]], subdivide=False)
+
+def map_tensor(pair1,pair2):
+    '''
+    Given two maps of matrix factorizations M->N, P->Q, returns the map MtensorP->NtensorQ
+    '''
+    (f0,f1) = pair1
+    (g0,g1) = pair2
+    #implement checking invalid maps
+    rank1 = f0.ncols()
+    rank2 = g0.ncols()
+    id0 = matrix.identity(rank1)
+    id1 = matrix.identity(rank2)
+    fg0 = block_matrix([[f0.tensor_product(id1), id0.tensor_product(g1)],\
+                        [id0.tensor_product(g0), -1*f1.tensor_product(id1)]], subdivide=False)
+    fg1 = block_matrix([[f1.tensor_product(id1), id0.tensor_product(g1)],\
+                        [id0.tensor_product(g0), -1*f0.tensor_product(id1)]], subdivide=False)
+    # indeed, (U0,V0) tensor (U1,V1) yields tensor product 2(x1-x3)*I_8.
+    return (fg0, fg1)
+
+
+def get_map_factor(crossing, sign, chi_index, n, mu=1, lamb=0):
+    if sign == 1:
+        index_list = [crossing[2],crossing[1],crossing[3],crossing[0]] #cbda
+    if sign == -1:
+        index_list = [crossing[3],crossing[2],crossing[0],crossing[1]] #dcab
+    if chi_index == 1:
+        product = chi_1(f'x{index_list[0]}',f'x{index_list[1]}',f'x{index_list[2]}',\
+                        f'x{index_list[3]}', n, lamb)
+    if chi_index == 0:
+        product = chi_0(f'x{index_list[0]}',f'x{index_list[1]}',f'x{index_list[2]}',\
+                        f'x{index_list[3]}', n, mu)
+    return product
+
+
+def chi_crossing(crossing, num_crossings, crossing_index, chi_index, n, mu=1, lamb=0):
+    sign = get_crossing_sign(crossing)
+    I = matrix.identity(2)
+    chi_map = get_map_factor(crossing, sign, chi_index, n, mu, lamb)
+    if crossing_index == 0:
+        product = chi_map
+    else:
+        product = (I,I)
+    for i in range(1, num_crossings): #num crossings is the length of the pd_code, one fewer than actual # of crossings
+        if crossing_index == i:
+            product = map_tensor(product, chi_map)
+        else:
+            product = map_tensor(product, (I,I))
+    return product
+
 
 def pd_code_to_matfacts(knotlike, n):
     '''
