@@ -241,8 +241,8 @@ def short_edge_factorization(source, target, n):
     d0_poly = (x_target**(n+1) - x_source**(n+1))/(x_target - x_source)
     d1_poly = x_target - x_source
 
-    d0 = M0.hom(Matrix(R,[d0_poly*x_source,d0_poly*x_target]),M1)
-    d1 = M1.hom(Matrix(R,[d1_poly*x_source,d1_poly*x_target]),M0)
+    d0 = M0.hom(matrix(R,[d0_poly*x_source,d0_poly*x_target]),M1)
+    d1 = M1.hom(matrix(R,[d1_poly*x_source,d1_poly*x_target]),M0)
     print(d0,d1)
     factorization = ChainComplex({0:d0,1:d1},base_ring=R,grading_group=Z2,degree=1)
 
@@ -256,9 +256,10 @@ def anti_block(A,B): #DO NOT DELETE.
     if A.base_ring() != B.base_ring():
         raise Exception('A,B must have the same base ring.')
     m,n = A.nrows(),A.ncols()
+    #print(m,n)
     p,q = B.nrows(),B.ncols()
-    tl = Matrix(A.base_ring(), m, q)
-    br = Matrix(A.base_ring(), p, n)
+    tl = matrix.zero(A.base_ring(), m, q)
+    br = matrix.zero(A.base_ring(), p, n)
     return block_matrix([[tl, A],[B, br]])
 
 
@@ -355,8 +356,8 @@ A = knot_to_init_resolution(K)
 Qi = CombinatorialFreeModule(QQ, ['xi'])
 Qj = CombinatorialFreeModule(QQ, ['xj'])
 
-MF = MatrixFactorization(QQ, Qi, Qj, Matrix(QQ, [2]), Matrix(QQ, [4]))
-MF2= MatrixFactorization(QQ, Qi, Qj, Matrix(QQ, [3]), Matrix(QQ, [6]))
+MF = MatrixFactorization(QQ, Qi, Qj, matrix(QQ, [2]), matrix(QQ, [4]))
+MF2= MatrixFactorization(QQ, Qi, Qj, matrix(QQ, [3]), matrix(QQ, [6]))
 
 R = QQ['x','y']
 R2 = QQ['y','z']
@@ -364,9 +365,9 @@ M = CombinatorialFreeModule(QQ['x','y'],['e'])
 Ma = CombinatorialFreeModule(QQ['x','y'],['a'])
 M2 = CombinatorialFreeModule(R2,['e'])
 M2b = CombinatorialFreeModule(R2,['b'])
-Lxy = MatrixFactorization(R,M,Ma, Matrix(R, [pi('x','y',4)]), Matrix(R, [x-y]))
+Lxy = MatrixFactorization(R,M,Ma, matrix(R, [pi('x','y',4)]), matrix(R, [x-y]))
 
-Lyz = MatrixFactorization(R2,M2,M2b, Matrix(R2, [pi('y','z',4)]), Matrix(R2, [y-z]))
+Lyz = MatrixFactorization(R2,M2,M2b, matrix(R2, [pi('y','z',4)]), matrix(R2, [y-z]))
 
 #Lxyyz = Lxy.tensor(Lyz)
 
@@ -596,10 +597,10 @@ class LabelGMF(LabelMF, GradedMatFact):
 def Ct(x_str, y_str, z_str, w_str, n):
     x, y, z, w = var(x_str), var(y_str), var(z_str), var(w_str)
     R = QQ[x,y,z,w]
-    U1 = Matrix(R,[u_1(x,y,z,w,n)])
-    U2 = Matrix(R,[u_2(x,y,z,w,n)])
-    UU1 = Matrix(R, [x+y-z-w])
-    UU2 = Matrix(R, [x*y-z*w])
+    U1 = matrix(R,[u_1(x,y,z,w,n)])
+    U2 = matrix(R,[u_2(x,y,z,w,n)])
+    UU1 = matrix(R, [x+y-z-w])
+    UU2 = matrix(R, [x*y-z*w])
     Rt1 = LabelGMF(U1, UU1, [''],[''],[0],[1-n])
     Rt2 = LabelGMF(U2, UU2, [''],[''],[0],[3-n])
     return Rt1.tensor(Rt2, [-1,-1],[-1,-1])
@@ -611,8 +612,8 @@ def Lij(xi_str, xj_str,n):
     '''
     xi, xj = var(xi_str), var(xj_str)
     R = QQ[xi, xj]
-    pixixj = Matrix(R, [pi(xi,xj,n)])
-    xixj = Matrix(R, [xi-xj])
+    pixixj = matrix(R, [pi(xi,xj,n)])
+    xixj = matrix(R, [xi-xj])
     return LabelGMF(pixixj, xixj, [''],[''],[0],[1-n])
 
 
@@ -803,14 +804,14 @@ def L_ij(xi_str,xj_str,n):
     '''
     xi,xj = var(xi_str), var(xj_str)
     pixy = pi(xj,xi,n)
-    return MF(Matrix([pixy]), Matrix([xj-xi]),[0],[1-n]) #WHY IS THE SIGN BACKWARDS??????
+    return MF(matrix([pixy]), matrix([xj-xi]),[0],[1-n]) #WHY IS THE SIGN BACKWARDS??????
 
 def C_ijkl(xi_str,xj_str,xk_str,xl_str,n):
     xi,xj,xk,xl = var(xi_str),var(xj_str),var(xk_str),var(xl_str)
     u1 = u_1(xi,xj,xk,xl,n)
     u2 = u_2(xi,xj,xk,xl,n)
-    tens1 = MF(Matrix([u1]), Matrix([xi+xj-xk-xl]),[0],[1-n])
-    tens2 = MF(Matrix([u2]), Matrix([xi*xj-xk*xl]),[0],[3-n])
+    tens1 = MF(matrix([u1]), matrix([xi+xj-xk-xl]),[0],[1-n])
+    tens2 = MF(matrix([u2]), matrix([xi*xj-xk*xl]),[0],[3-n])
     tensor = tens1.tensor(tens2)
     return tensor.grading_shift(-1)
 
@@ -828,9 +829,9 @@ def chi_0(xi_str,xj_str,xk_str,xl_str,n,mu):
     u2 = u_2(xi,xj,xk,xl,n)
     pijk = pi(xj,xk,n)
     a1 = (mu-1)*u2+(u1+x1*u2-pijk)/(xi-xl)
-    U0 = Matrix([[xl-xj+mu*(xi+xj-xk-xl),0],\
+    U0 = matrix([[xl-xj+mu*(xi+xj-xk-xl),0],\
                  [a1,1]])
-    U1 = Matrix([[xl+mu*(xi-xl),mu*(xj-xk)-xj],\
+    U1 = matrix([[xl+mu*(xi-xl),mu*(xj-xk)-xj],\
                  [-1,1]])
     return U0, U1
 
@@ -841,8 +842,8 @@ def chi_1(xi_str,xj_str,xk_str,xl_str,n,lamb):
     pijk = pi(xj,xk,n)
     a2 = lamb*u2+(u1+xi*u2-pijk)/(xl-xi)
     a3 = lamb*(xk+xl-xi-xj)+xi-xk
-    V0 = Matrix([[1,0],[a2,a3]])
-    V1 = Matrix([[1, xk+lamb*(xj-xk)],[1, xi+lamb*(xl-xi)]])
+    V0 = matrix([[1,0],[a2,a3]])
+    V1 = matrix([[1, xk+lamb*(xj-xk)],[1, xi+lamb*(xl-xi)]])
     return V0, V1
 
 def crossing_complex(xi_str,xj_str,xk_str,xl_str,n,mu,lamb,sign):
@@ -855,12 +856,12 @@ def crossing_complex(xi_str,xj_str,xk_str,xl_str,n,mu,lamb,sign):
     a1 = (mu-1)*u2+(u1+x1*u2-pijk)/(xi-xl)
     a2 = lamb*u2+(u1+xi*u2-pijk)/(xl-xi)
     a3 = lamb*(xk+xl-xi-xj)+xi-xk
-    U0 = Matrix([[xl-xj+mu*(xi+xj-xk-xl),0],\
+    U0 = matrix([[xl-xj+mu*(xi+xj-xk-xl),0],\
                  [a1,1]])
-    U1 = Matrix([[xl+mu*(xi-xl),mu*(xj-xk)-xj],\
+    U1 = matrix([[xl+mu*(xi-xl),mu*(xj-xk)-xj],\
                  [-1,1]])
-    V0 = Matrix([[1,0],[a2,a3]])
-    V1 = Matrix([[1, xk+lamb*(xj-xk)],[1, xi+lamb*(xl-xi)]])
+    V0 = matrix([[1,0],[a2,a3]])
+    V1 = matrix([[1, xk+lamb*(xj-xk)],[1, xi+lamb*(xl-xi)]])
     if sign == -1:
         complex = {
             0: unzipped,
@@ -1066,17 +1067,17 @@ CC3 = C_ijkl('e','f','a','b',4)
 # print('foo', CC.d0_string())
 # print('bar', CC.d1_string())
 
-Md0 = Matrix(Qxy, [pixy])
-Md1 = Matrix(Qxy, [x-y])
-Nd0 = Matrix(Qyz, [piyz])
-Nd1 = Matrix(Qyz, [y-z])
+Md0 = matrix(Qxy, [pixy])
+Md1 = matrix(Qxy, [x-y])
+Nd0 = matrix(Qyz, [piyz])
+Nd1 = matrix(Qyz, [y-z])
 u1 = u_1('x','y','z','w',4)
 u2 = u_2('x','y','z','w',4)
 Ring = QQ['x','y','z','w']
-uu1 = Matrix(Ring, [u1])
-uu1b = Matrix(Ring, [x+y-z-w])
-uu2 = Matrix(Ring, [u2])
-uu2b = Matrix(Ring, [x*y-z*w])
+uu1 = matrix(Ring, [u1])
+uu1b = matrix(Ring, [x+y-z-w])
+uu2 = matrix(Ring, [u2])
+uu2b = matrix(Ring, [x*y-z*w])
 Rt1 = LabelGMF(uu1, uu1b, [''], ['a'], [0], [-4])
 Rt2 = LabelGMF(uu2, uu2b, [''], ['b'], [0], [-2])
 Cmin = Cp('x','y','z','w',4,'-')
