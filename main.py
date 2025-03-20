@@ -691,7 +691,7 @@ def m2matrix_input(matrix):
     m2input = str(lists).replace('[','{').replace(']','}')
     return m2input
 
-macaulay2.eval("setMaxMemoryUsage(10*1024^3)")
+macaulay2.eval("setMaxMemoryUsage(5*1024^3)")
 class MF():
     def __init__(self, d0, d1, gradings0, gradings1):
         self.d0 = d0
