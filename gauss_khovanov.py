@@ -145,10 +145,13 @@ class Crossing():
         self.uo = uo
         self.li = li
         self.lo = lo
+        self.glue = None #no endpoint gluings
         if self.sign == 1:
+            #bd = CLL([self.li, self.uo, self.lo, self.ui])
             bd = CLL([self.li, self.uo, self.lo, self.ui])
             self.boundary = [bd]
         if self.sign == -1:
+            #bd = CLL([self.li, self.ui, self.lo, self.uo])
             bd = CLL([self.li, self.ui, self.lo, self.uo])
             self.boundary = [bd]
 
@@ -158,4 +161,12 @@ class Tangle():
     #so far, no unlinked components. (i guess if i care that much do something with unknot "infty sign")
     def __init__(self):
         self.crossings = []
-        self.endpoints = CLL([])
+        self.boundary = []
+
+    def attach_crossing(self, crossing, glue):
+        if not self.crossings:
+            self.crossings = crossing
+            self.boundary = crossing.boundary
+            return self
+
+        self.crossings += crossing
