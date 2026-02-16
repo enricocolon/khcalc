@@ -133,9 +133,9 @@ class Web:
         self.n = self.source.n
         #gotta do some sort of check for the spider word
         self.spider_word = spider_word
-        #check_comp = self.spider_word.check_compatibility(self.source) #UNCOMMENT WHEN YOU FIX THIS CHECK.
-        #if self.target != check_comp:
-        #    raise Exception(f'Target: {self.target} does not match expected: {check_comp}')
+        check_comp = self.spider_word.check_compatibility(self.source)
+        if self.target != check_comp:
+            raise Exception(f'Target: {self.target} does not match expected: {check_comp}')
 
     def tensor(self,other):
         #i think there's something wrong here with shifted_other.
@@ -232,6 +232,10 @@ class Merge(Web):
         pass
 
 
+class gWeb(Web):
+    def __init__(self,source,target,spider_word,grading):
+        super().__init__(source,target,spider_word)
+        self.q = grading
 
 bword1= BoundaryWord([2,2],5)
 bword2 = BoundaryWord([4],5)
