@@ -149,9 +149,9 @@ class Web:
         shifted_other = []
         for i in spider_word_2: #here is where i need to keep track of the "offset parameter"
             if i[0] == 's':
-                shifted_other.append((i[0],i[1]+len(self.source.word)+1,i[2]))
+                shifted_other.append((i[0],i[1]+len(self.target.word),i[2]))
             else:
-                shifted_other.append((i[0],i[1]+len(self.source.word)+1))
+                shifted_other.append((i[0],i[1]+len(self.target.word)))
         spider_word = SpiderWord(spider_word_1 + shifted_other)
         #do something here to keep track of the merges and stuff
         output_web = Web(source, target, spider_word)
