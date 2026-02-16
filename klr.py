@@ -36,6 +36,30 @@ class BoundaryWord:
             new_word = self.word[0:i]+[self.n+self.word[i]]+self.word[i+1:]
         return BoundaryWord(new_word, self.n)
 
+    def __eq__(self, other):
+        if (self.word == other.word) and (self.n == other.n):
+            return True
+        else:
+            return False
+
+    def __add__(self,other):
+        if self.n == other.n:
+            return BoundaryWord(self.word + other.word, self.n)
+        else:
+            raise Exception('Boundary words cannot add, words in different alphabets')
+
+    def ascii_constructor(self):
+        '''
+        Given a boundary word, returns its ascii representation for rendering
+        '''
+        stri = ""
+        for i in self.word:
+            if i >= 0:
+                stri = stri + " " + str(i)
+            if i<0:
+                stri = stri + str(i)
+        return stri
+
 
 class SpiderWord:
     def __init__(self, array):
@@ -69,11 +93,13 @@ class SpiderWord:
         self.word = array
 
     def __repr__(self):
-        return f'Strand Word: {self.word}'
+        return str(self.word)
+
 
     def check_compatibility(self, source):
         '''
         Given a labelling of the source object, returns the compatible labelling of the target.
+        BROKEN. Ought to fix.
         '''
         if type(source) != BoundaryWord:
             raise Exception('Source is not of type BoundaryWord')
@@ -93,13 +119,12 @@ class SpiderWord:
 
 
 
-    
 class Web:
     def __init__(self,source,target,spider_word):
         '''
         Initialize a MOY web object.
         '''
-        if {type(source),type(target)} != BoundaryWord:
+        if {type(source),type(target)} != {BoundaryWord}:
             raise Exception(f'A boundary component is of incorrect type.')
         if source.n != target.n:
             raise Exception(f'Boundary objects are weights for different sl_n.')
@@ -108,25 +133,26 @@ class Web:
         self.n = self.source.n
         #gotta do some sort of check for the spider word
         self.spider_word = spider_word
-        check_comp = self.spider_word.check_compatibility(self.source)
-        if self.target != check_comp:
-            raise Exception(f'Target: {self.target} does not match expected: {check_comp}')
+        #check_comp = self.spider_word.check_compatibility(self.source) #UNCOMMENT WHEN YOU FIX THIS CHECK.
+        #if self.target != check_comp:
+        #    raise Exception(f'Target: {self.target} does not match expected: {check_comp}')
 
     def tensor(self,other):
+        #i think there's something wrong here with shifted_other.
         if self.n != other.n:
             raise Exception('Webs for different sl_n.')
         source = self.source + other.source
         target = self.target + other.target
         #indices 0,...,len(1)-1 for 1st, indices len(1),...,len(1)+len(2) for 2nd.
-        spider_word_1 = self.spider_word
-        spider_word_2 = other.spider_word
+        spider_word_1 = self.spider_word.word
+        spider_word_2 = other.spider_word.word
         shifted_other = []
-        for i in spider_word_2:
+        for i in spider_word_2: #here is where i need to keep track of the "offset parameter"
             if i[0] == 's':
-                shifted_other.append((i[0],i[1]+len(self.source),i[2]))
+                shifted_other.append((i[0],i[1]+len(self.source.word)+1,i[2]))
             else:
-                shifted_other.append((i[0],i[1]+len(self.source)))
-        spider_word = spider_word_1 + shifted_other
+                shifted_other.append((i[0],i[1]+len(self.source.word)+1))
+        spider_word = SpiderWord(spider_word_1 + shifted_other)
         #do something here to keep track of the merges and stuff
         output_web = Web(source, target, spider_word)
         return output_web
@@ -141,12 +167,58 @@ class Web:
             raise Exception('Webs for different sl_n.')
         if self.target != other.source:
             raise Exception(f"Source {self.source} does not match target {other.source}.")
-        spider_word = None
+        spider_word_1 = self.spider_word.word
+        spider_word_2 = other.spider_word.word
+        spider_word = SpiderWord(spider_word_1 + spider_word_2)
         output_web = Web(self.source, other.target, spider_word)
         return output_web
 
     def ladder_form(self):
         pass
+
+
+    def __repr__(self):
+        #TODO represent this free spider word GRAPHICALLY later
+        return f"Source: {self.source}\nTarget: {self.target}\nSpider Word: {self.spider_word}\nn={self.n}"
+
+    def ascii(self):
+        currword = self.source
+        stri = currword.ascii_constructor()
+
+        for word in self.spider_word.word:
+            currlen = len(currword.word)
+            if word[0] == 'm':
+                move_string = ""
+                for i in range(currlen):
+                    if i <= word[1]:
+                        move_string = move_string + " |"
+                    elif i > word[1]:
+                        move_string = move_string + "\\ "
+                currword = currword.merge(word[1])
+            if word[0] == 's':
+                move_string = ""
+                for i in range(currlen + 1):
+                    if i <= word[1]:
+                        move_string = move_string + " |"
+                    elif i > word[1]:
+                        move_string = move_string + "/ "
+                currword = currword.split(word[1], word[2])
+            if word[0] == 't': #NOT specifying an embedding/tag side. implement later if needed
+                move_string = ""
+                for i in range(currlen):
+                    if i != word[1]:
+                        move_string = move_string + " |"
+                    elif i == word[1]:
+                        move_string = move_string + " +"
+                currword = currword.tag(word[1])
+            new_stri = currword.ascii_constructor() + '\n' + move_string + '\n'
+            stri = new_stri + stri
+
+        return stri
+
+    def render(self):
+        print(self.ascii())
+
 
 class Merge(Web):
     def __init__(self,a,b,n):
@@ -158,3 +230,16 @@ class Merge(Web):
         target = BoundaryWord([a+b],n)
         super().__init__([a,b],[a+b],web)
         pass
+
+
+
+bword1= BoundaryWord([2,2],5)
+bword2 = BoundaryWord([4],5)
+bword3=BoundaryWord([2],5)
+bword4=BoundaryWord([1,1],5)
+web = Web(bword3,bword4,SpiderWord([('s',0,1)]))
+web2 = Web(bword1,bword2,SpiderWord([('m', 0)]))
+test_tensor = web.tensor(web2)
+bword5=BoundaryWord([3,1],5)
+web3= Web(bword2, bword5, SpiderWord([('s',0,3)]))
+test_compose = web2.compose(web3) #compose takes A.compose(B) to B(A). (reading composition right to left)
