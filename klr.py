@@ -174,8 +174,29 @@ class Web:
         return output_web
 
     def ladder_form(self):
-        pass
-
+        currword = self.source
+        layers = []
+        for word in self.spider_word.word:
+            layers.append(currword.word)
+            if word[0] == 'm':
+                currword = currword.merge(word[1])
+            if word[0] == 's':
+                currword = currword.split(word[1],word[2])
+            if word[0] == 't':
+                currword = currword.tag(word[1])
+        layers.append(currword)
+        currpad = 0
+        for word in self.spider_word.word:
+            if word[0] == 'm':
+                layers[currpad+1] = layers[currpad+1][0:word[1]+1] + [0] + layers[currpad+1][word[1]+1:]
+                currpad += 1
+            if word[0] == 's':
+                layers[currpad] = layers[currpad][0:word[1]+1] + [0] + layers[currpad][word[1]+1:]
+                currpad += 1
+            if word[0] == 't':
+                currpad += 1
+        return layers #returns something which almost gets us divided differences as array differences.
+    #still need to fix array length standardization
 
     def __repr__(self):
         #TODO represent this free spider word GRAPHICALLY later
@@ -247,3 +268,4 @@ test_tensor = web.tensor(web2)
 bword5=BoundaryWord([3,1],5)
 web3= Web(bword2, bword5, SpiderWord([('s',0,3)]))
 test_compose = web2.compose(web3) #compose takes A.compose(B) to B(A). (reading composition right to left)
+J = test_tensor.tensor(test_compose)
