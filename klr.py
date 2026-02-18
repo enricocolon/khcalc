@@ -3,7 +3,8 @@
 
 class BoundaryWord:
     def __init__(self, word, n):
-        alphabet = set(range(-(n-1), n))-{0}
+        alphabet = set(range(-(n-1), n)) #{0} is not disallowed--represents a space in a boundary word. not necessary for
+        #most computations but helpful for ladderizing
         if type(word) != list:
             raise Exception(f'Boundary word {word} must be a list')
         for i in word:
@@ -17,19 +18,26 @@ class BoundaryWord:
         return f"{self.word}, n={self.n}"
 
     def merge(self, i):
+        if self.word[i] == 0 or self.word[i+1] == 0:
+            raise Exception('Cannot merge empty vertex.')
         if self.word[i]/self.word[i+1] < 0:
             raise Exception(f'Incompatible merge at indices ({i}, {i+1}).')
         new_word = self.word[0:i]+[self.word[i]+self.word[i+1]]+self.word[i+2:]
         return BoundaryWord(new_word, self.n)
 
+
     def split(self, i, j):
         '''
         Takes an edge with label n' to a pair j, n'-j (spider)
         '''
+        if self.word[i] == 0:
+            raise Exception('Cannot split empty vertex.')
         new_word = self.word[0:i]+[j]+[self.word[i]-j]+self.word[i+1:]
         return BoundaryWord(new_word, self.n)
 
     def tag(self, i):
+        if self.word[i] == 0:
+            raise Exception('Cannot tag empty vertex.')
         if self.word[i] > 0:
             new_word = self.word[0:i]+[-self.n+self.word[i]]+self.word[i+1:]
         else:
@@ -184,7 +192,7 @@ class Web:
                 currword = currword.split(word[1],word[2])
             if word[0] == 't':
                 currword = currword.tag(word[1])
-        layers.append(currword)
+        layers.append(currword.word)
         currpad = 0
         for word in self.spider_word.word:
             if word[0] == 'm':
@@ -269,3 +277,8 @@ bword5=BoundaryWord([3,1],5)
 web3= Web(bword2, bword5, SpiderWord([('s',0,3)]))
 test_compose = web2.compose(web3) #compose takes A.compose(B) to B(A). (reading composition right to left)
 J = test_tensor.tensor(test_compose)
+JJ = J.tensor(J)
+JJ1 = JJ.tensor(web)
+JJ2 = JJ.tensor(web2)
+M = JJ1.ladder_form()
+MM = JJ2.ladder_form()
