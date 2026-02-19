@@ -12,17 +12,51 @@ class BoundaryWord:
                 raise Exception(f'Boundary label {i} of {word} out of bounds.') #this may cause more problems than its worth
         self.word = word
         self.n = n
-
+        zero_positions = set()
+        for i in range(len(self.word)):
+            if self.word[i] == 0:
+                zero_positions.add(i)
+        self.zero_positions = zero_positions #TODO keep track of zero positions for rendering
 
     def __repr__(self):
         return f"{self.word}, n={self.n}"
 
+    def __len__(self):
+        return len(self.word)
+
+    def offset_index(self,i):
+        '''
+        returns # of 0s strictly less than index i.
+        '''
+        offset = 0
+        for j in range(i):
+            if self.word[j] == 0:
+                offset += 1
+        return offset
+
+    def offset(self,i):
+        '''
+        Returns offset for the padded index of the ith (0-indexed) nonzero element of the boundary word.
+        '''
+        offset = 0
+        scan = i
+        truncated_boundary = self.word[0:scan+1]
+        nonzeros = len([i for i in truncated_boundary if i != 0])
+        while nonzeros <= i:
+            scan += 1
+            offset += 1
+            truncated_boundary = self.word[0:scan+1]
+            nonzeros = len([i for i in truncated_boundary if i != 0])
+        return offset
+
     def merge(self, i):
-        if self.word[i] == 0 or self.word[i+1] == 0:
+        offset = self.offset(i)
+        if self.word[i+offset] == 0 or self.word[i+offset+1] == 0:
             raise Exception('Cannot merge empty vertex.')
-        if self.word[i]/self.word[i+1] < 0:
-            raise Exception(f'Incompatible merge at indices ({i}, {i+1}).')
-        new_word = self.word[0:i]+[self.word[i]+self.word[i+1]]+self.word[i+2:]
+
+        if self.word[i+offset]/self.word[i+offset+1] < 0:
+            raise Exception(f'Incompatible merge at indices ({i+offset}, {i+1+offset}).')
+        new_word = self.word[0:i+offset]+[self.word[i+offset]+self.word[i+1+offset]]+self.word[i+2+offset:]
         return BoundaryWord(new_word, self.n)
 
 
@@ -30,19 +64,35 @@ class BoundaryWord:
         '''
         Takes an edge with label n' to a pair j, n'-j (spider)
         '''
-        if self.word[i] == 0:
+        offset = self.offset(i)
+        if self.word[i+offset] == 0:
             raise Exception('Cannot split empty vertex.')
-        new_word = self.word[0:i]+[j]+[self.word[i]-j]+self.word[i+1:]
+        new_word = self.word[0:i+offset]+[j]+[self.word[i+offset]-j]+self.word[i+1+offset:]
         return BoundaryWord(new_word, self.n)
 
     def tag(self, i):
-        if self.word[i] == 0:
+        offset = self.offset(i)
+        if self.word[i+offset] == 0:
             raise Exception('Cannot tag empty vertex.')
-        if self.word[i] > 0:
-            new_word = self.word[0:i]+[-self.n+self.word[i]]+self.word[i+1:]
+        if self.word[i+offset] > 0:
+            new_word = self.word[0:i+offset]+[-self.n+self.word[i+offset]]+self.word[i+1+offset:]
         else:
-            new_word = self.word[0:i]+[self.n+self.word[i]]+self.word[i+1:]
+            new_word = self.word[0:i+offset]+[self.n+self.word[i+offset]]+self.word[i+1+offset:]
         return BoundaryWord(new_word, self.n)
+
+    def pad(self, i):
+        '''
+        insert a zero after (0-adjusted) index i in a boundary word. (accordingly i can be -1 or nonneg.)
+        '''
+        if type(i) in {set,list}:
+            output = self
+            for index in i:
+                output = output.pad(index)
+            return output
+        offset = self.offset(i)
+        new_word = self.word[0:i+1+offset] + [0] + self.word[i+1+offset:]
+        return BoundaryWord(new_word, self.n)
+
 
     def __eq__(self, other):
         if (self.word == other.word) and (self.n == other.n):
@@ -104,7 +154,10 @@ class SpiderWord:
         return str(self.word)
 
 
-    def check_compatibility(self, source):
+    def __len__(self):
+        return len(self.word)
+
+    def check_compatibility(self, source, allLayers=False):
         '''
         Given a labelling of the source object, returns the compatible labelling of the target.
         BROKEN. Ought to fix.
@@ -114,6 +167,8 @@ class SpiderWord:
         if len(source.word) < self.strand_number:
             raise Exception(f'Word {source.word} is not long enough. Minimal strand #: {self.strand_number}')
         edge_layer = source #fix this notation. this is a BoundaryWord...
+        if allLayers:
+            layers = [source]
         for i in self.word: #and this is a spider/strand word.
             if i[0] == 'm':
                 edge_layer = edge_layer.merge(i[1])
@@ -121,8 +176,11 @@ class SpiderWord:
                 edge_layer = edge_layer.split(i[1],i[2])
             if i[0] == 't':
                 edge_layer = edge_layer.tag(i[1])
+            if allLayers:
+                layers.append(edge_layer)
+        if allLayers:
+            return layers
         return edge_layer
-
 
 
 
@@ -144,6 +202,8 @@ class Web:
         check_comp = self.spider_word.check_compatibility(self.source)
         if self.target != check_comp:
             raise Exception(f'Target: {self.target} does not match expected: {check_comp}')
+        self.layers = self.spider_word.check_compatibility(self.source, allLayers=True)
+        self.layer_width = max([len(i) for i in self.layers])
 
     def tensor(self,other):
         #i think there's something wrong here with shifted_other.
@@ -182,35 +242,31 @@ class Web:
         return output_web
 
     def ladder_form(self):
-        currword = self.source
-        layers = []
+        ladder = Web(self.source,self.source,SpiderWord([]))
         for word in self.spider_word.word:
-            layers.append(currword.word)
-            if word[0] == 'm':
-                currword = currword.merge(word[1])
-            if word[0] == 's':
-                currword = currword.split(word[1],word[2])
-            if word[0] == 't':
-                currword = currword.tag(word[1])
-        layers.append(currword.word)
-        currpad = 0
-        for word in self.spider_word.word:
-            if word[0] == 'm':
-                layers[currpad+1] = layers[currpad+1][0:word[1]+1] + [0] + layers[currpad+1][word[1]+1:]
-                currpad += 1
-            if word[0] == 's':
-                layers[currpad] = layers[currpad][0:word[1]+1] + [0] + layers[currpad][word[1]+1:]
-                currpad += 1
-            if word[0] == 't':
-                currpad += 1
-        return layers #returns something which almost gets us divided differences as array differences.
-    #still need to fix array length standardization
+           wordd = SpiderWord([word])
+           if word[0] == 'm':
+               range_ = wordd.check_compatibility(ladder.target)
+               ladder = ladder.compose(Web(ladder.target, range_,wordd))
+           if word[0] == 's':
+               domain_adjust = ladder.target.pad(word[1])
+               ladder = Web(ladder.source,domain_adjust,ladder.spider_word)
+               range_ = wordd.check_compatibility(domain_adjust)
+               ladder = ladder.compose(Web(domain_adjust,range_,wordd))
+           if word[0] == 't':
+               range_ = wordd.check_compatibility(ladder.target)
+               ladder = ladder.compose(Web(ladder.target, range_,wordd))
+        return ladder
+
+    def pad(self, layer, i):
+        self.layers[layer] = self.layers[layer].pad(i)
 
     def __repr__(self):
         #TODO represent this free spider word GRAPHICALLY later
         return f"Source: {self.source}\nTarget: {self.target}\nSpider Word: {self.spider_word}\nn={self.n}"
 
     def ascii(self):
+        #TODO implement handling for 0-weights
         currword = self.source
         stri = currword.ascii_constructor()
 
@@ -219,23 +275,33 @@ class Web:
             if word[0] == 'm':
                 move_string = ""
                 for i in range(currlen):
-                    if i <= word[1]:
+                    if i in currword.zero_positions:
+                        move_string = move_string + "  "
+                    elif i <= word[1]:
                         move_string = move_string + " |"
-                    elif i > word[1]:
+                    elif i == word[1]+1:
+                        move_string = move_string + "\\ "
+                    elif i > word[1]+1:
                         move_string = move_string + "\\ "
                 currword = currword.merge(word[1])
             if word[0] == 's':
                 move_string = ""
                 for i in range(currlen + 1):
-                    if i <= word[1]:
+                    if i in currword.zero_positions:
+                        move_string = move+string + "  "
+                    elif i <= word[1]:
                         move_string = move_string + " |"
-                    elif i > word[1]:
+                    elif i == word[1]+1:
+                        move_string = move_string + "/ "
+                    elif i > word[1]+1:
                         move_string = move_string + "/ "
                 currword = currword.split(word[1], word[2])
             if word[0] == 't': #NOT specifying an embedding/tag side. implement later if needed
                 move_string = ""
                 for i in range(currlen):
-                    if i != word[1]:
+                    if i in currword.zeropositions:
+                        move_string = move_string + "  "
+                    elif i != word[1]:
                         move_string = move_string + " |"
                     elif i == word[1]:
                         move_string = move_string + " +"
