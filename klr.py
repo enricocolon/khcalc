@@ -34,6 +34,13 @@ class BoundaryWord:
                 offset += 1
         return offset
 
+    def word_nozero(self):
+        if 0 in self.word:
+            word_nozero = self.word.remove(0)
+        else:
+            word_nozero = self.word
+        return word_nozero
+
     def offset(self,i):
         '''
         Returns offset for the padded index of the ith (0-indexed) nonzero element of the boundary word.
@@ -41,12 +48,12 @@ class BoundaryWord:
         offset = 0
         scan = i
         truncated_boundary = self.word[0:scan+1]
-        nonzeros = len([i for i in truncated_boundary if i != 0])
+        nonzeros = len([j for j in truncated_boundary if j != 0])
         while nonzeros <= i:
             scan += 1
             offset += 1
             truncated_boundary = self.word[0:scan+1]
-            nonzeros = len([i for i in truncated_boundary if i != 0])
+            nonzeros = len([j for j in truncated_boundary if j != 0])
         return offset
 
     def merge(self, i):
@@ -200,9 +207,16 @@ class Web:
         #gotta do some sort of check for the spider word
         self.spider_word = spider_word
         check_comp = self.spider_word.check_compatibility(self.source)
-        if self.target != check_comp:
+        #print(self.target.word_nozero(),check_comp.word_nozero())
+        if self.target.word_nozero() != check_comp.word_nozero():
+            print('excepttriggered')
+            print(self.target.word_nozero(),check_comp.word_nozero())
+            #print(type(self.target.word_nozero()))
+            #print(type(check_comp.word_nozero()))
+            #print(self.target.word_nozero()==check_comp.word_nozero(),self.target.word_nozero()!=check_comp.word_nozero())
             raise Exception(f'Target: {self.target} does not match expected: {check_comp}')
         self.layers = self.spider_word.check_compatibility(self.source, allLayers=True)
+        #self.layers.reverse()
         self.layer_width = max([len(i) for i in self.layers])
 
     def tensor(self,other):
@@ -241,6 +255,38 @@ class Web:
         output_web = Web(self.source, other.target, spider_word)
         return output_web
 
+    def pad_layers(self):
+        '''
+        pads web boundary layers to produce a ladder word representing the web.
+        '''
+        pad_list = [self.source]
+        spider_word = [i for i in self.spider_word.word]
+        spider_word.reverse()
+        curr_spiderword_tup = spider_word.pop()
+        curr_spiderword = SpiderWord([curr_spiderword_tup])
+        #prev_spiderword = None
+        while len(spider_word)>0:
+            #print(curr_spiderword)
+            curr_spiderword_tup = spider_word.pop()
+            #prev_spiderword = curr_spiderword
+            curr_spiderword = SpiderWord([curr_spiderword_tup])
+            if curr_spiderword.word[0][0] == 's':
+                print(curr_spiderword.word[0][1])
+                pad_list[-1] = pad_list[-1].pad(curr_spiderword.word[0][1])
+                nxt = curr_spiderword.check_compatibility(pad_list[-1])
+                pad_list.append(nxt)
+            if curr_spiderword.word[0][0] == 'm':
+                print(curr_spiderword.word[0][1])
+                nxt = curr_spiderword.check_compatibility(pad_list[-1])
+                nxt.pad(curr_spiderword.word[0][1])
+                pad_list.append(nxt)
+            else:
+                print(curr_spiderword.word[0][1])
+                #print(spider_word, curr_spiderword.word)
+                nxt = curr_spiderword.check_compatibility(pad_list[-1])
+                pad_list.append(nxt)
+        return pad_list
+
     def ladder_form(self):
         ladder = Web(self.source,self.source,SpiderWord([]))
         for word in self.spider_word.word:
@@ -250,7 +296,9 @@ class Web:
                ladder = ladder.compose(Web(ladder.target, range_,wordd))
            if word[0] == 's':
                domain_adjust = ladder.target.pad(word[1])
-               ladder = Web(ladder.source,domain_adjust,ladder.spider_word)
+               print(type(domain_adjust))
+               print(ladder.source,domain_adjust,ladder.spider_word)
+               ladder = ladder.compose(Web(ladder.source,domain_adjust))#,ladder.spider_word)
                range_ = wordd.check_compatibility(domain_adjust)
                ladder = ladder.compose(Web(domain_adjust,range_,wordd))
            if word[0] == 't':
@@ -259,13 +307,36 @@ class Web:
         return ladder
 
     def pad(self, layer, i):
-        self.layers[layer] = self.layers[layer].pad(i)
+        self.layers[layer] = self.layers[layer].pad(i) #this is broken because the pad was broken.
 
     def __repr__(self):
         #TODO represent this free spider word GRAPHICALLY later
         return f"Source: {self.source}\nTarget: {self.target}\nSpider Word: {self.spider_word}\nn={self.n}"
 
+
     def ascii(self):
+        layers = [i for i in self.layers]
+        spider_word = [i for i in self.spider_word.word]
+        layers.reverse()
+        spider_word.reverse()
+        currlayer = layers.pop()
+        stri = currlayer.ascii_constructor()
+        while layers:
+            currlayer = layers.pop()
+            currword = spider_word.pop()
+            if len(spider_word) == 0:
+                stri = currlayer.ascii_constructor() + "\n" + stri
+                return stri
+            #print(currlayer, currword)
+            stri = currlayer.ascii_constructor() + "\n" + stri
+            for label in currlayer.word:
+                #print(label)
+                #gotta get index for merge/split
+                pass
+        return stri
+
+    
+    def ascii_deprecated(self):
         #TODO implement handling for 0-weights
         currword = self.source
         stri = currword.ascii_constructor()
@@ -311,9 +382,11 @@ class Web:
 
         return stri
 
+    def render_deprecated(self):
+        print(self.ascii_deprecated())
+
     def render(self):
         print(self.ascii())
-
 
 class Merge(Web):
     def __init__(self,a,b,n):
@@ -346,5 +419,5 @@ J = test_tensor.tensor(test_compose)
 JJ = J.tensor(J)
 JJ1 = JJ.tensor(web)
 JJ2 = JJ.tensor(web2)
-M = JJ1.ladder_form()
-MM = JJ2.ladder_form()
+#M = JJ1.ladder_form()
+#MM = JJ2.ladder_form()
