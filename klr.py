@@ -259,32 +259,73 @@ class Web:
         '''
         pads web boundary layers to produce a ladder word representing the web.
         '''
-        pad_list = [self.source]
+
+        pad_list = [layer for layer in self.layers]
+        width = self.layer_width
+        #pad_list = [self.source]
         spider_word = [i for i in self.spider_word.word]
-        spider_word.reverse()
-        curr_spiderword_tup = spider_word.pop()
-        curr_spiderword = SpiderWord([curr_spiderword_tup])
-        #prev_spiderword = None
-        while len(spider_word)>0:
-            #print(curr_spiderword)
-            curr_spiderword_tup = spider_word.pop()
-            #prev_spiderword = curr_spiderword
-            curr_spiderword = SpiderWord([curr_spiderword_tup])
-            if curr_spiderword.word[0][0] == 's':
-                print(curr_spiderword.word[0][1])
-                pad_list[-1] = pad_list[-1].pad(curr_spiderword.word[0][1])
-                nxt = curr_spiderword.check_compatibility(pad_list[-1])
-                pad_list.append(nxt)
-            if curr_spiderword.word[0][0] == 'm':
-                print(curr_spiderword.word[0][1])
-                nxt = curr_spiderword.check_compatibility(pad_list[-1])
-                nxt.pad(curr_spiderword.word[0][1])
-                pad_list.append(nxt)
+
+        pad_indices = []
+
+        for i in range(len(spider_word)):
+            index = spider_word[i][1]
+            #print(spider_word[i][0])
+            if spider_word[i][0] == 'm':
+                if True:
+                #if pad_list[i+1].word[index] != 0:
+                    j = i+1
+                    if j == width - 1:
+                        continue
+                    #print(pad_list[j],j,width)
+                    while len(pad_list[j].word) < width:
+                        #print(len(pad_list),j)
+                        pad_list[j] = pad_list[j].pad(index)
+                        if j == width - 3:
+                            break
+                        j += 1
+            if spider_word[i][0] == 's':
+                if True:
+                #if pad_list[i].word[index] != 0:
+                    j = i
+                    #if j == 0:
+                    #    continue
+                    while len(pad_list[j].word) < width:
+                        pad_list[j] = pad_list[j].pad(index)
+                        if j == 0:
+                            break
+                        j -= 1
             else:
-                print(curr_spiderword.word[0][1])
-                #print(spider_word, curr_spiderword.word)
-                nxt = curr_spiderword.check_compatibility(pad_list[-1])
-                pad_list.append(nxt)
+                pass
+        return pad_list
+
+        # spider_word.reverse()
+        # curr_spiderword_tup = spider_word.pop()
+        # curr_spiderword = SpiderWord([curr_spiderword_tup])
+
+
+
+        #prev_spiderword = None
+        # while len(spider_word)>0:
+        #     #print(curr_spiderword)
+        #     curr_spiderword_tup = spider_word.pop()
+        #     #prev_spiderword = curr_spiderword
+        #     curr_spiderword = SpiderWord([curr_spiderword_tup])
+        #     if curr_spiderword.word[0][0] == 's':
+        #         print('s', pad_list[-1], curr_spiderword.word[0][1])
+        #         pad_list[-1] = pad_list[-1].pad(curr_spiderword.word[0][1])
+        #         nxt = curr_spiderword.check_compatibility(pad_list[-1])
+        #         pad_list.append(nxt)
+        #     if curr_spiderword.word[0][0] == 'm':
+        #         print('m', pad_list[-1], curr_spiderword.word[0][1])
+        #         #print(curr_spiderword.word[0][1])
+        #         nxt = curr_spiderword.check_compatibility(pad_list[-1])
+        #         nxt.pad(curr_spiderword.word[0][1])
+        #         pad_list.append(nxt)
+        #     else:
+        #         print(f'{curr_spiderword.word[0][0]}', 'els', pad_list[-1], curr_spiderword.word[0][1])
+        #         #print(spider_word, curr_spiderword.word)
+        #         nxt = curr_spiderword.check_compatibility(pad_list[-1])
+        #         pad_list.append(nxt)
         return pad_list
 
     def ladder_form(self):
