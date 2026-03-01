@@ -555,9 +555,9 @@ class EF_word():
         for letter in self.word:
             v = [0]*(source.n-1)
             if letter[0] == 'E':
-                offset = offset.shift(1, 1)
+                offset = offset.shift(i, 1)
             if letter[0] == 'F':
-                offset = offset.shift(1, -1)
+                offset = offset.shift(i, -1)
         self.target = self.source + offset
 
 
