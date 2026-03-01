@@ -543,7 +543,10 @@ class EF_word():
         '''
         input:
             source: an sl_n weight,
-            word: an array of pairs ('E'/'F', index).
+            word: an array of triples ('E'/'F', index, power).
+                'E'/'F': generator type
+                index: generator index (from zero)
+                power: divided power exponent
         output:
             the corresponding quantum group word in {E,F}.
         '''
@@ -555,9 +558,9 @@ class EF_word():
         for letter in self.word:
             v = [0]*(source.n-1)
             if letter[0] == 'E':
-                offset = offset.shift(i, 1)
+                offset = offset.shift(letter[1], letter[2])
             if letter[0] == 'F':
-                offset = offset.shift(i, -1)
+                offset = offset.shift(letter[1], -letter[2])
         self.target = self.source + offset
 
 
@@ -570,11 +573,9 @@ class EF_word():
     def __repr__(self):
         wordstring = ""
         for i in self.word:
-            wordstring  =  i[0] + f'_{i[1]} ' + wordstring
+            wordstring  =  i[0] + f'_{i[1]}^({i[2]}) ' + wordstring
         return f'1_{self.target.weight} ' + wordstring + f'1_{self.source.weight}'
 
-class divided_power():
-    pass
 
 
 
