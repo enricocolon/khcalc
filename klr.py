@@ -475,8 +475,7 @@ class Weight():
     def __init__(self, weight):
         '''
         instantiates an object representing an sl_n
-        weight as a list with n-1 integer elements
-        corresponding to the root lattice.
+        weight in the root basis.
         '''
         self.n = len(weight)+1
         self.weight = weight
@@ -518,10 +517,11 @@ class Weight():
 
     def pairing(self,i):
         '''
-        input: an index i (0-indexed)
-        output:
+        input: given a weight presented (in the root lattice, as here)
+        by lambda, and an index i,
+        output: return the pairing <h_i,lambda>.
         '''
-        pass
+        return sum(self.weight[j]*a(i,j) for j in range(self.n-1))
 
 
 def a(i,j):
@@ -536,21 +536,29 @@ def a(i,j):
     if abs(i-j) == 0:
         return 2
 
+
+
 class EF_word():
     def __init__(self,source, word):
+        '''
+        input:
+            source: an sl_n weight,
+            word: an array of pairs ('E'/'F', index).
+        output:
+            the corresponding quantum group word in {E,F}.
+        '''
         if not isinstance(source, Weight):
             return NotImplemented
         self.source = source #weight
         self.word = word #free word in E_i,F_i and divided powers - need support for E^(a),F^(a) (over Q)
         offset = Weight([0]*(source.n-1))
         for letter in self.word:
-            if letter == 'E':
-                v = [0]*(source.n-1)
-                #add a simple root? need to either declare them one hots by fixing basis or doing something else
-                offset +=
-            if letter == 'F':
-                pass
-        #self.target =
+            v = [0]*(source.n-1)
+            if letter[0] == 'E':
+                offset = offset.shift(1, 1)
+            if letter[0] == 'F':
+                offset = offset.shift(1, -1)
+        self.target = self.source + offset
 
 
     def __eq__(self, other):
@@ -558,6 +566,12 @@ class EF_word():
         # [NNNNNN000]->[NNNNN0000] should be reducible to k*1.
         # any word evaluates as a scalar if working in highest weight (getting rid of E's). <- passing to the quotient
         pass
+
+    def __repr__(self):
+        wordstring = ""
+        for i in self.word:
+            wordstring  =  i[0] + f'_{i[1]} ' + wordstring
+        return f'1_{self.target.weight} ' + wordstring + f'1_{self.source.weight}'
 
 class divided_power():
     pass
