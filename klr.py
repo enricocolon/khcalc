@@ -489,6 +489,8 @@ class Weight():
         return f'{self.weight}, sl_{self.n}'
 
     def __add__(self,other):
+        if self.n != other.n:
+            raise Exception('Incompatible lattice weights.')
         weight = []
         for i in range(self.n-1):
             weight.append(self.weight[i]+other.weight[i])
@@ -502,17 +504,14 @@ class Weight():
         sum = Weight(weight)
         return sum
 
-    def shift(self, i, sign):
+    def shift(self, i, k):
         '''
         Represents adding or subtracting the i'th simple root
         from self(in this basis, a one-hot vector)
         '''
         vec = [0]*(self.n-1)
-        vec[i] = 1
-        if sign == 1:
-            return self + Weight(vec)
-        if sign == -1:
-            return self - Weight(vec)
+        vec[i] = k
+        return self + Weight(vec)
 
 
     def pairing(self,i):
