@@ -36,7 +36,7 @@ class BoundaryWord:
 
     def word_nozero(self):
         if 0 in self.word:
-            word_nozero = self.word.remove(0)
+            word_nozero = [x for x in self.word if x != 0]
         else:
             word_nozero = self.word
         return word_nozero
@@ -326,9 +326,16 @@ class Web:
         #         #print(spider_word, curr_spiderword.word)
         #         nxt = curr_spiderword.check_compatibility(pad_list[-1])
         #         pad_list.append(nxt)
-        return pad_list
+        #return pad_list
 
     def ladder_form(self):
+        pad_list = [i.word for i in self.pad_layers()]
+        diffs = []
+        for i in range(len(pad_list)-1):
+            diffs.append([pad_list[i][j]-pad_list[i+1][j] for j in range(self.layer_width)])
+        return diffs
+
+    def ladder_form_deprecated(self):
         ladder = Web(self.source,self.source,SpiderWord([]))
         for word in self.spider_word.word:
            wordd = SpiderWord([word])
@@ -462,3 +469,115 @@ JJ1 = JJ.tensor(web)
 JJ2 = JJ.tensor(web2)
 #M = JJ1.ladder_form()
 #MM = JJ2.ladder_form()
+
+
+class Weight():
+    def __init__(self, weight):
+        '''
+        instantiates an object representing an sl_n
+        weight as a list with n-1 integer elements
+        corresponding to the root lattice.
+        '''
+        self.n = len(weight)+1
+        self.weight = weight
+
+    def __eq__(self, other):
+        if not isinstance(other, Weight):
+            return NotImplemented
+        return self.weight == other.weight
+
+    def __repr__(self):
+        return f'{self.weight}, sl_{self.n}'
+
+    def __add__(self,other):
+        weight = []
+        for i in range(self.n-1):
+            weight.append(self.weight[i]+other.weight[i])
+        sum = Weight(weight)
+        return sum
+
+    def __sub__(self,other):
+        weight = []
+        for i in range(self.n-1):
+            weight.append(self.weight[i]-other.weight[i])
+        sum = Weight(weight)
+        return sum
+
+    def shift(self, i, sign):
+        '''
+        Represents adding or subtracting the i'th simple root
+        from self(in this basis, a one-hot vector)
+        '''
+        vec = [0]*(self.n-1)
+        vec[i] = 1
+        if sign == 1:
+            return self + Weight(vec)
+        if sign == -1:
+            return self - Weight(vec)
+
+
+    def pairing(self,i):
+        '''
+        input: an index i (0-indexed)
+        output:
+        '''
+        pass
+
+
+def a(i,j):
+    '''
+    Method for getting entry a_ij of the infinite sl Cartan matrix, i.e.,
+    an n-agnostic Cartan form for weights.
+    '''
+    if abs(i-j) > 1:
+        return 0
+    if abs(i-j) == 1:
+        return -1
+    if abs(i-j) == 0:
+        return 2
+
+class EF_word():
+    def __init__(self,source, word):
+        if not isinstance(source, Weight):
+            return NotImplemented
+        self.source = source #weight
+        self.word = word #free word in E_i,F_i and divided powers - need support for E^(a),F^(a) (over Q)
+        offset = Weight([0]*(source.n-1))
+        for letter in self.word:
+            if letter == 'E':
+                v = [0]*(source.n-1)
+                #add a simple root? need to either declare them one hots by fixing basis or doing something else
+                offset +=
+            if letter == 'F':
+                pass
+        #self.target =
+
+
+    def __eq__(self, other):
+        # commutators, quantum serre relat. <- commutators to get F/Es at top, E/F at bottom. <- just need commutators! [E_i,F_i].
+        # [NNNNNN000]->[NNNNN0000] should be reducible to k*1.
+        # any word evaluates as a scalar if working in highest weight (getting rid of E's). <- passing to the quotient
+        pass
+
+class divided_power():
+    pass
+
+
+
+
+class ChainComplex():
+    def __init__(self, layers, differentials):
+        """
+        input:
+        layers = dictionary (keys: integers, values: vector spaces)
+        differentials = dictionary (keys: integers, values: differentials from vs[i] to vs[i+1])
+
+        output:
+        chain complex object specified by the input data
+        """
+        self.layers = layers
+        self.differentials = differentials
+
+
+
+#E2 = EF_word([1,1],[('E',0),('E',0)])
