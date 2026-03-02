@@ -575,10 +575,34 @@ class EF_word():
             wordstring  =  i[0] + f'_{i[1]}^({i[2]}) ' + wordstring
         return f'1_{self.target.weight} ' + wordstring + f'1_{self.source.weight}'
 
-class gEF_word(EF_word):
+class qEF_word(EF_word):
     def __init__(self, source, word, q):
         super().__init__(source,word)
         self.q = q #integer
+
+class qEF_poly():
+    def __init__(self, dct):
+        '''
+        input:
+            dict: dictionary with keys in qEF_word, values rational coefficients
+        output:
+            object representing a polynomial of q-graded elements of idempoted quantum group
+        '''
+        for key in dct.keys:
+            if not isInstance(key, qEF_word):
+                raise Exception('key must be a q-graded element of idempoted Uq sl_m')
+        self.dct = dct
+
+    def __add__(self,other):
+        pass
+
+    def __mul__(self,other):
+        pass
+
+
+
+
+
 
 class ChainComplex():
     def __init__(self, layers, differentials):
