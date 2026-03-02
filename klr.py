@@ -593,6 +593,7 @@ class qEF_poly():
                 raise Exception('key must be a q-graded element of idempoted Uq sl_m')
         self.dct = dct
 
+
     def __add__(self,other):
         pass
 
