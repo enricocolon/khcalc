@@ -595,7 +595,19 @@ class qEF_poly():
 
 
     def __add__(self,other):
-        pass
+        keys = set(self.keys).union(set(other.keys))
+        output = dict()
+
+        for key in keys:
+            if key in set(self.keys) and key in set(other.keys):
+                output[key] = self[key] + other[key]
+            elif key in self.keys:
+                output[key] = self[key]
+            else:
+                output[key] = other[key]
+
+        poly = qEF_poly(output)
+        return poly
 
     def __mul__(self,other):
         pass
