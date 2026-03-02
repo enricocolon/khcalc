@@ -575,9 +575,10 @@ class EF_word():
             wordstring  =  i[0] + f'_{i[1]}^({i[2]}) ' + wordstring
         return f'1_{self.target.weight} ' + wordstring + f'1_{self.source.weight}'
 
-
-
-
+class gEF_word(EF_word):
+    def __init__(self, source, word, q):
+        super().__init__(source,word)
+        self.q = q #integer
 
 class ChainComplex():
     def __init__(self, layers, differentials):
