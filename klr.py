@@ -717,8 +717,82 @@ class laurent_polynomial():
         stri = stri[:-1]
         return stri
 
-class q_multi_polynomial():
-    pass
+class Q_polynomial():
+    def __init__(self, dct):
+        '''
+        given a dictionary of exponents (keys: tuples of size k, coeffs: int or fraction), gives an object
+        representing the corresponding element of Q[x_0,...,x_k-1].
+        '''
+        self.dct = dct
+        self.k = len(list(self.dct.keys())[0])
+        for key in self.dct.keys():
+            if not isinstance(key, tuple):
+                raise Exception(f'Key {key} is not a tuple')
+            if not (isinstance(self.dct[key], int) or isinstance(self.dct[key], Fraction)):
+                raise Exception(f'Value {self.dct[key]} is not an int or Fraction')
+            if not len(key) == self.k:
+                raise Exception(f'Key {key} is of incorrect size {len(key)} != {self.k}')
+            for index in key:
+                if not isinstance(index, int):
+                    raise Exception(f'Key {key} has a non-integral exponent')
+        self.dct = {key: value for key, value in self.dct.items() if value != 0}
+
+    def __eq__(self, other):
+        if self.dct == other.dct:
+            return True
+        else:
+            return False
+
+    def __add__(self, other):
+        if isinstance(other,int) or isinstance(other,Fraction):
+            other_poly = Q_polynomial({tuple([0]*self.k):other})
+        else:
+            other_poly = other
+        keys1 = set(self.dct.keys())
+        keys2 = set(other_poly.dct.keys())
+        keys = keys1.union(keys2)
+        dct = dict()
+        for key in keys:
+            dct[key] = 0
+            if key in keys1:
+                dct[key]+= self.dct[key] #it's concatenating when it should be adding
+            if key in keys2:
+                dct[key]+= other_poly.dct[key]
+        return Q_polynomial(dct)
+
+    __radd__ = __add__
+
+    def __sub__(self,other):
+        return self+(-1)*other
+
+    def __mul__(self, other):
+        if isinstance(other,int) or isinstance(other,Fraction):
+            other_poly = Q_polynomial({tuple([0]*self.k):other})
+        else:
+            other_poly = other
+        keys1 = set(self.dct.keys())
+        keys2 = set(other_poly.dct.keys())
+        dct = {}
+        for k1 in keys1:
+            for k2 in keys2:
+                summ = tuple([k1[i] + k2[i] for i in range(len(k1))]) #still an issue
+                if k1+k2 not in dct.keys():
+                    dct[summ] = 0
+                dct[summ] += self.dct[k1]*other_poly.dct[k2]
+        return Q_polynomial(dct)
+
+    def __repr__(self):
+        stri = ""
+        for key,value in self.dct.items():
+            stri += f'{value}'
+            for i in range(len(key)):
+                stri += f'x_{i}^{key[i]}'
+            stri += '+'
+        stri = stri[:-1]
+        return stri
+
+
+
 
 class nilCoxeter():
     def __init__(self,a):
