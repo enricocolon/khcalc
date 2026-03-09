@@ -1,5 +1,20 @@
 #!/usr/bin/env python3
 
+from fractions import Fraction
+
+def a(i,j):
+    '''
+    Method for getting entry a_ij of the infinite sl Cartan matrix, i.e.,
+    an n-agnostic Cartan form for weights.
+    '''
+    if abs(i-j) > 1:
+        return 0
+    if abs(i-j) == 1:
+        return -1
+    if abs(i-j) == 0:
+        return 2
+
+
 
 class BoundaryWord:
     def __init__(self, word, n):
@@ -475,7 +490,7 @@ class Weight():
     def __init__(self, weight):
         '''
         instantiates an object representing an sl_n
-        weight in the root basis.
+        weight in the fund weight basis.
         '''
         self.n = len(weight)+1
         self.weight = weight
@@ -504,36 +519,40 @@ class Weight():
         sum = Weight(weight)
         return sum
 
-    def shift(self, i, k):
+    def shift_dep(self, i, k):
         '''
         Represents adding or subtracting the i'th simple root
         from self(in this basis, a one-hot vector)
+        #DEPRECATED. assumes root basis.
         '''
         vec = [0]*(self.n-1)
         vec[i] = k
         return self + Weight(vec)
 
+    def shift(self, i, k):
+        '''
+        Shift a weight v -> v+ka_i.
+        '''
+        vec = [0]*(self.n-1)
+        vec[i] = 2*k
+        if i-1 >= 0:
+            vec[i-1] = -1*k
+        if i+1 <= self.n-2:
+            vec[i+1] = -1*k
+        return self + Weight(vec)
 
-    def pairing(self,i):
+    def pairing_dep(self,i):
         '''
         input: given a weight presented (in the root lattice, as here)
         by lambda, and an index i,
         output: return the pairing <h_i,lambda>.
+        #DEPRECATED. assumes root basis.
         '''
         return sum(self.weight[j]*a(i,j) for j in range(self.n-1))
 
+    def pairing(self,i):
+        return self.weight[i]
 
-def a(i,j):
-    '''
-    Method for getting entry a_ij of the infinite sl Cartan matrix, i.e.,
-    an n-agnostic Cartan form for weights.
-    '''
-    if abs(i-j) > 1:
-        return 0
-    if abs(i-j) == 1:
-        return -1
-    if abs(i-j) == 0:
-        return 2
 
 
 
@@ -589,7 +608,7 @@ class qEF_poly():
             object representing a polynomial of q-graded elements of idempoted quantum group
         '''
         for key in dct.keys:
-            if not isInstance(key, qEF_word):
+            if not isInstance(key, qEF_word): #BUG: unhashable type fix after seminar
                 raise Exception('key must be a q-graded element of idempoted Uq sl_m')
         self.dct = dct
 
@@ -631,5 +650,87 @@ class ChainComplex():
         self.differentials = differentials
 
 
+#sparse polynomials over Q
+class q_laurent_polynomial():
+    '''
+
+    '''
+    def __init__(self, dct):
+        self.dct = dct
+        for exp in dct.keys():
+            if not isinstance(exp, int):
+                raise Exception(f'Invalid exponent {exp}.')
+            if not (isinstance(self.dct[exp], int) or isinstance(self.dct[exp], Fraction)):
+                raise Exception(f'Invalid coefficient {self.dct[exp]} at exponent {exp}.')
+        self.dct = {key: value for key, value in self.dct.items() if value != 0}
+
+    def __eq__(self,other):
+        if self.dct == other.dct:
+            return True
+        else:
+            return False
+
+
+
+    def __add__(self, other):
+        if isinstance(other,int) or isinstance(other,Fraction):
+            other_poly = q_laurent_polynomial({0:other})
+        else:
+            other_poly = other
+        keys1 = set(self.dct.keys())
+        keys2 = set(other_poly.dct.keys())
+        keys = keys1.union(keys2)
+        dct = dict()
+        for key in keys:
+            dct[key] = 0
+            if key in keys1:
+                dct[key]+= self.dct[key]
+            if key in keys2:
+                dct[key]+= other_poly.dct[key]
+        return q_laurent_polynomial(dct)
+
+    __radd__ = __add__
+
+    def __sub__(self,other):
+        return self+(-1)*other
+
+    def __mul__(self, other):
+        if isinstance(other,int) or isinstance(other,Fraction):
+            other_poly = q_laurent_polynomial({0:other})
+        else:
+            other_poly = other
+        keys1 = set(self.dct.keys())
+        keys2 = set(other_poly.dct.keys())
+        dct = {}
+        for k1 in keys1:
+            for k2 in keys2:
+                if k1+k2 not in dct.keys():
+                    dct[k1+k2] = 0
+                dct[k1+k2] += self.dct[k1]*other_poly.dct[k2]
+        return q_laurent_polynomial(dct)
+
+
+    def __repr__(self):
+        stri = ""
+        for mon in sorted(self.dct.keys(),reverse=True):
+            stri += f"{str(self.dct[mon])}q^{mon}+"
+        stri = stri[:-1]
+        return stri
+
+
+# nilhecke
+class NHElem():
+    def __init__(self, poly, word):
+        pass
+#
+class NHMonomial(NHElem):
+    def __init__(self, poly, word):
+        self.poly = poly #a polynomial in k[y]
+        self.word = word #divided diff word
+
+
+class NilHecke():
+    def __init__(self, a):
+        self.a = a #number of strands
 
 #E2 = EF_word([1,1],[('E',0),('E',0)])
