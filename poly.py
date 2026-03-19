@@ -138,4 +138,18 @@ class LaurentPoly:
 
         return " + ".join(terms).replace("+ -", "- ")
 
-    #TK: implement powers
+    def __pow__(self, n):
+        if not isinstance(n, int):
+            raise TypeError("power must be of type int")
+        if n < 0:
+            raise ValueError("power must be positive for general Laurent polynomial")
+
+        result = LaurentPoly.one(self.varset, self.coeff_type)
+        base = self
+
+        while n:
+            if n & 1:
+                result = result * base
+            base = base * base
+            n = n // 2
+        return result
