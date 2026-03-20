@@ -30,6 +30,8 @@ class LaurentPoly:
 
 
     def _check_compatible(self, other):
+        if not isinstance(other, LaurentPoly):
+            raise TypeError(f"{other} must be of type LaurentPoly.")
         if self.varset != other.varset:
             raise ValueError(f"varsets {self.varset} and {other.varset} are not compatible")
         if self.coeff_type != other.coeff_type:
@@ -109,6 +111,16 @@ class LaurentPoly:
             return cls.zero(varset, coeff_type)
 
         return cls({exp: c}, varset, coeff_type)
+
+
+    @classmethod
+    def variable(cls, var, varset=("q",), power=1, coeff_type=Fraction):
+        varset = tuple(varset)
+        if var not in varset:
+            raise ValueError(f"variable {var} not in varset {varset}")
+        exp = [0] * len(varset)
+        exp[varset.index(var)] = power
+        return cls.monomial(tuple(exp), 1, varset, coeff_type)
 
     def __str__(self):
         if not self.terms:

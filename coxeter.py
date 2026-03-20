@@ -96,3 +96,24 @@ class Permutation():
         output s_i(permutation)
         '''
         return self.s(len(self), i) * self
+
+    def reduced_word(self):
+        """
+        input: permutation
+        output: a (0-indexed) reduced word [i1, i2, ..., ik] with
+        self = s_{i1} s_{i2} ... s_{ik}
+        Warning: there is nothing canonical about this reduced word
+        """
+        arr = list(self.array)
+        curr = list(range(len(self)))
+        word = []
+
+        for pos in range(len(self)):
+            i = arr[pos]
+            j = curr.index(i)
+            while j > pos:
+                curr[j - 1], curr[j] = curr[j], curr[j - 1]
+                word.append(j - 1)
+                j -= 1
+
+        return word
