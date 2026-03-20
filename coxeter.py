@@ -45,6 +45,9 @@ class Permutation():
     def __repr__(self):
         return f"Permutation({self.array})"
 
+    def __str__(self):
+        return f"s_[{self.array}]"
+
     def __hash__(self):
         return hash(self.array)
 
