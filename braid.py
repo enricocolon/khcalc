@@ -1,27 +1,40 @@
 #!/usr/bin/env python3
 
-from coxeter import Permutation
-from poly import LaurentPoly
-from hecke import HeckeElem #which of these do i actually need?
-
 class BraidElem:
     def __init__(self, n, word=()):
         self.n = n
         self.word = tuple(word)
-        self.alphabet = set{range(-self.n-1,self.n)}-{0} #alphabet for braid generators/their inverses.
+        self.alphabet = set(range(-self.n+1,self.n))-{0} #alphabet for braid generators/their inverses.
         #i represents (in zero-indexing), a (signed) crossing between strand i-1 and i.
 
         for letter in self.word:
             if letter not in self.alphabet:
-                raise ValueError(f"Invalid letter {letter} in braid word for B_{n}")
+                raise ValueError(f"Invalid letter {letter} in braid word for Br_{n}")
 
     def __repr__(self):
-        return f"BraidWord({self.n},{self.word})"
+        return f"BraidElem({self.n},{self.word})"
 
-    def __str__(self): #replace with better word printing
-        return f"Br_{self.n}({self.word})"
+    def __str__(self):
+        if not self.word:
+            return "id"
 
-    def __eq__(self, other):
+        terms = []
+        for letter in reversed(self.word): #composition convention: (g*f)=g(f)
+            if letter > 0:
+                terms.append(f"σ_{letter}")
+            else:
+                terms.append(f"σ_{-letter}^-1")
+        return " ".join(terms)
+
+
+    def _check_compatible(self, other):
+        if not isinstance(other, BraidElem):
+            raise TypeError(f"{other} must be of type BraidElem.")
+        if self.n != other.n:
+            raise ValueError(f"Braid elements of different sizes {self.n} and {other.n}")
+
+
+    def __eq__(self, other): #same as words, not as elements (i.e. rel's not checked)
         return isinstance(other, BraidElem) and self.n == other.n and self.word == other.word
 
     def copy(self):
@@ -32,22 +45,35 @@ class BraidElem:
         input: self, other: braid elements
         output: their concatenation other(self).
         '''
-        pass
+        self._check_compatible(other)
+        word = BraidElem(self.n, other.word+self.word)
+        #add word simplification here
+        return word
 
     def inverse(self):
-        pass
+        return BraidElem(self.n, tuple(-x for x in reversed(self.word)))
 
     def free_reduce(self):
         '''
-        Reduce the easy things to reduce (eg adjacent inverses)
+        Cancel adjacent σ σ^-1's.
         '''
-        pass
+        redword = []
+        for letter in self.word:
+            if redword and redword[-1] == -letter:
+                redword.pop()
+            else:
+                redword.append(letter)
+        return BraidElem(self.n, tuple(redword))
 
     def writhe(self):
-        pass
+        count = 0
+        word = self.word
+        for i in word:
+            if i > 0:
+                count += 1
+            else:
+                count -= 1
+        return count
 
-    def is_identity(self):
-        pass
-
-    def to_hecke(self, varset=("q",)):
-        pass
+    def is_freely_trivial(self):
+        return len(self.free_reduce().word) == 0
