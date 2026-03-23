@@ -3,7 +3,7 @@
 This is an ongoing project building toward an implementation of Queffelec-Rose style constructions of colored sl_{n}/gl_{n} link invariants.
 
 ** Current Status
-khcalc currently provides the HOMFLY polynomial of a braid closure from the Hecke algebra directly. Below is an example calculation for the right-handed trefoil.
+khcalc currently computes the HOMFLY-PT polynomial of a braid closure from the Hecke algebra and Jones-Ocneanu (Markov) trace directly. Below is an example calculation for the right-handed trefoil.
 
 #+begin_src python :results output
 from braid import BraidElem
@@ -16,3 +16,6 @@ print(homfly(tref))
 #+end_src
 
 ** Future Plans
+The current implementation provides a decategorified model of type A Reshetikhin-Turaev invariants, and will serve as the foundation for implementations of more subtle categorified constructions.
+
+This project is oriented toward working directly in Khovanov-Lauda-Rouquier (quiver Hecke) algebras as the primary algebraic framework, together with their foam 2-representations, in order to compute (un)colored sl_n link homologies of braid closures.
