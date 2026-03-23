@@ -1,4 +1,6 @@
 #+title: khcalc
 
-* khcalc
-testing readme
+This is an ongoing project building toward an implementation of Queffelec-Rose style constructions of colored \(\mathfrak{sl}_{n}\) link invariants.
+
+** Current Status
+** Future Plans
