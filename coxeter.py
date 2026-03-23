@@ -117,3 +117,19 @@ class Permutation():
                 j -= 1
 
         return word
+
+    def parabolic_factor(self):
+        '''
+        input: permutation on n letters
+        output: (w,p) where w is the permutation on n-1 letters obtained by removing n-1 from the one-line notation of self,
+        and p is the position of n-1 in self.
+        '''
+        if n == 0:
+            raise ValueError("Permutation must be on n>0 letters.")
+        if n == 1:
+            return (Permutation.identity(1),0)
+        pos = self.array.index(len(self)-1)
+        w_arr = list(self.array)
+        w_arr.pop(pos)
+        w = Permutation(w_arr)
+        return (w,pos)

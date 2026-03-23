@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+from poly import LaurentPoly
+from hecke import HeckeElem
+
 class BraidElem:
     def __init__(self, n, word=()):
         self.n = n
@@ -12,7 +15,7 @@ class BraidElem:
                 raise ValueError(f"Invalid letter {letter} in braid word for Br_{n}")
 
     def __repr__(self):
-        return f"BraidElem({self.n},{self.word})"
+        return f"BraidElem({self.n}, {self.word})"
 
     def __str__(self):
         if not self.word:
@@ -46,7 +49,7 @@ class BraidElem:
         output: their concatenation other(self).
         '''
         self._check_compatible(other)
-        word = BraidElem(self.n, other.word+self.word)
+        word = BraidElem(self.n, self.word+other.word)
         #add word simplification here
         return word
 
@@ -77,3 +80,25 @@ class BraidElem:
 
     def is_freely_trivial(self):
         return len(self.free_reduce().word) == 0
+
+    def to_hecke(self, varset=("q",)):
+        """
+        input: braid element
+        output: its image in the Hecke algebra.
+        """
+        q = LaurentPoly.variable("q", varset)
+        qinv = LaurentPoly.variable("q", varset, power=-1)
+
+        output = HeckeElem.one(self.n, varset)
+        one = HeckeElem.one(self.n, varset)
+
+        for letter in self.word:
+            i = abs(letter) - 1
+            Ti = HeckeElem.simple(self.n, i, varset)
+
+            if letter > 0:
+                output = output*Ti
+            else:
+                output = output*(Ti - one.scale(q-qinv))
+
+        return output
