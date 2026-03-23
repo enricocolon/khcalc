@@ -3,7 +3,7 @@
 This is an ongoing project building toward an implementation of Queffelec-Rose style constructions of colored sl_{n}/gl_{n} link invariants.
 
 ** Current Status
-khcalc currently provides the HOMFLY polynomial of a braid closure from the Hecke algebra directly.
+khcalc currently provides the HOMFLY polynomial of a braid closure from the Hecke algebra directly. Below is an example calculation for the right-handed trefoil.
 
 #+begin_src python :results output
 from braid import BraidElem
@@ -11,9 +11,8 @@ from trace import homfly_from_braid as homfly
 
 tref = BraidElem(2, (1,1,1)) #right-handed trefoil
 print(homfly(tref))
-#+end_src
 
-#+RESULTS:
-: (-q^-3*a^-2 + q^-1*a^-4 + q^-1*a^-2 - q*a^-4 - q*a^-2 + q^3*a^-2)/(-q^-1 + q)
+#OUTPUT: (-q^-3*a^-2 + q^-1*a^-4 + q^-1*a^-2 - q*a^-4 - q*a^-2 + q^3*a^-2)/(-q^-1 + q)
+#+end_src
 
 ** Future Plans
