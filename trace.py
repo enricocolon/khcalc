@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from braid import BraidElem
+from coxeter import Permutation
 from hecke import HeckeElem
 from poly import LaurentPoly
 from rat import LaurentFrac
@@ -20,7 +22,7 @@ def trace_tw(n,w, varset=("q","a"), coeff_type=Fraction):
     if n == 1:
         return LaurentFrac.one(varset)
 
-    u, pos = parabolic_factor(w)
+    u, pos = w.parabolic_factor()
 
     if pos == n-1:
         term = trace_recursion(varset)
@@ -42,12 +44,18 @@ def ocneanu_trace(n, hecke_elem):
         raise ValueError(f"H_{n} not a valid Hecke algebra for trace")
     if n == 1:
         i = Permutation.identity(1)
-        coeff = hecke_elem.terms.get(id1, LaurentPoly.zero(("q","a")))
+        coeff = hecke_elem.terms.get(i, LaurentPoly.zero(("q","a")))
         return LaurentFrac.from_poly(coeff)
     output = LaurentFrac.zero(("q","a"))
     for w, coeff in hecke_elem.terms.items():
         output += LaurentFrac.from_poly(coeff)*trace_tw(n,w, ("q","a"))
     return output
 
-def homfly_from_braid(braid):
-    pass
+def homfly_from_braid(braid, varset=("q","a")):
+    if not isinstance(braid, BraidElem):
+        raise TypeError(f"{braid} not of correct type BraidElem")
+    hecke = braid.to_hecke(varset)
+    trace = ocneanu_trace(braid.n, hecke)
+    renorm = LaurentPoly.variable("a", varset, power=-braid.writhe())
+    renormfrac = LaurentFrac.from_poly(renorm)
+    return renormfrac * trace

@@ -124,6 +124,7 @@ class Permutation():
         output: (w,p) where w is the permutation on n-1 letters obtained by removing n-1 from the one-line notation of self,
         and p is the position of n-1 in self.
         '''
+        n = len(self)
         if n == 0:
             raise ValueError("Permutation must be on n>0 letters.")
         if n == 1:
