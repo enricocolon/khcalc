@@ -5,12 +5,15 @@ This is an ongoing project building toward an implementation of Queffelec-Rose s
 ** Current Status
 khcalc currently provides the HOMFLY polynomial of a braid closure from the Hecke algebra directly.
 
-#+begin_src python3
+#+begin_src python :results output
 from braid import BraidElem
 from trace import homfly_from_braid as homfly
 
 tref = BraidElem(2, (1,1,1)) #right-handed trefoil
 print(homfly(tref))
 #+end_src
+
+#+RESULTS:
+: (-q^-3*a^-2 + q^-1*a^-4 + q^-1*a^-2 - q*a^-4 - q*a^-2 + q^3*a^-2)/(-q^-1 + q)
 
 ** Future Plans
