@@ -1,40 +1,39 @@
 #!/usr/bin/env python3
 
-from fractions import Fraction
-from poly import LaurentPoly
-from rat import LaurentFrac
-
 class FreeModule:
-    def __init__(self, ring, dim, basis={f"r_{i}" for i in range(dim)}):
+    def __init__(self, ring, basis=None, dim=None):
         self.ring = ring
-        self.basis = basis
-        self.dim = len(self.basis)
+        if basis is not None and dim is not None:
+            if len(basis) != dim:
+                 raise ValueError("Length of basis must match dim.")
+        if basis is not None:
+            self.basis = tuple(basis)
+            self.dim = len(self.basis)
+        elif dim is not None:
+            self.basis = {f"e_{i}" for i in range(dim)}
+            self.dim = dim
+        else:
+            raise ValueError("Must specify either basis or dim.")
+
+        self.index = {e: i for i, e in enumerate(self.basis)}
+
+    def zero(self):
+        return FreeModuleElem(self, {}) #Not Implemented
+
+    def elem(self, data):
+        return FreeModuleElem(self, data) #Not Implemented
+
+    def basis_vector(self, e):
+        if e not in self.basis:
+            raise ValueError(f"{e} is not a basis element.")
+        return FreeModuleElem(self, {e: self.ring.one()}) #make sure this works
+
+    def __repr__(self):
+        return f"FreeModule({self.ring}, basis={self.basis})"
+
 
 class FreeModuleElem:
-    def __init__(self):
-        raise NotImplementedError
+    NotImplemented
 
-class SparseMatrix:
-    def __init__(self, ring, data):
-        '''
-        input:
-            ring: (int, fraction, LaurentPoly, LaurentFrac)
-            data: A dictionary whose keys are pairs (i,j) of nonnegative ints and values are elements of ring in
-            the entry (i,j).
-        output: a SparseMatrix object
-        '''
-        self.ring = ring
-        self.data = dict()
-
-        for key, val in data.items():
-            if not (isinstance(key, tuple) and len(key) == 2 and all(isinstance(k, int) and k >= 0 for k in key)):
-                raise ValueError(f"{key} is not a valid key. Keys must be pairs of nonnegative integers.")
-            if not isinstance(val, ring):
-                raise ValueError(f"{val} is not an element of {ring}.")
-            if val != ring(0):
-                self.data[key] = val
-
-        self._prune()
-
-    def _prune(self):
-        self.data = {key: val for key, val in self.data.items() if val != self.ring(0)}
+class LinearMap:
+    NotImplemented

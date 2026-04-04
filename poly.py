@@ -59,6 +59,8 @@ class LaurentPoly:
         return not self.terms
 
     def __add__(self, other):
+        if isinstance(other, (int, Fraction)): #coerce scalars
+            other = LaurentPoly.const(other, self.varset, self.coeff_type)
         self._check_compatible(other)
         output = dict(self.terms)
         for key, val in other.terms.items():
