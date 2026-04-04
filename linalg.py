@@ -189,3 +189,67 @@ class LinearMap:
     def __repr__(self):
         return f"LinearMap({self.source} -> {self.target}, num_nonzero={len(self.data)})"
 
+
+    @classmethod
+    def zero(cls, source, target):
+        return cls(source, target, dict())
+
+    def is_zero(self):
+        return not self.data
+
+    @classmethod
+    def identity(cls, module):
+        return cls(module, module, {(e,e): module.ring.one() for e in module.basis})
+
+    def after(self, other):
+        '''
+        provides the precomposition self(other).
+        '''
+        if not isinstance(other, LinearMap):
+            raise TypeError("Can only compose with another LinearMap")
+
+        if other.target is not self.source:
+            raise ValueError("Incompatible codomain/domain")
+
+        comp = {}
+
+        for (u, t1), b in self.data.items():
+            for (t2, s), a in other.data.items():
+                if t1 == t2:
+                    key = (u,s)
+                    comp[key] = comp.get(key, self.ring.zero()) + b * a
+
+        return LinearMap(other.source,self.target, comp)
+
+    def __matmul__(self,other):
+        return self.after(other)
+
+    def __eq__(self, other):
+        if not isinstance(other, LinearMap):
+            return False
+        return (self.source is other.source and self.target is other.target and self.data == other.data)
+
+    def __add__(self, other):
+        if not isinstance(other, LinearMap):
+            return NotImplemented
+        if self.source is not other.source or self.target is not other.target:
+            raise ValueError("Can only add linear maps with same source and target")
+
+        summ = dict(self.data)
+        for key, val in other.data.items():
+            summ[key] = summ.get(key, self.ring.zero()) + val
+
+        return LinearMap(self.source, self.target, summ)
+
+    def __neg__(self):
+        return LinearMap(self.source,self.target,{key:-val for key,val in self.data.items()})
+
+    def __sub__(self, other):
+        return self + (-other)
+
+    def __rmul__(self, scal):
+        s = self.ring.coerce(scal)
+        return LinearMap(self.source, self.target, {key: s * val for key, val in self.data.items()})
+
+    def __mul__(self, scal):
+        return self.__rmul__(scal)
