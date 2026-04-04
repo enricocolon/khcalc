@@ -76,6 +76,8 @@ class LaurentPoly:
     def __mul__(self, other):
         if isinstance(other, (int, Fraction)): #coerce scalars
             other = LaurentPoly.const(other, self.varset, self.coeff_type)
+        elif not isinstance(other, LaurentPoly):
+            return NotImplemented
         self._check_compatible(other)
         output = {}
         for key, val in self.terms.items():
