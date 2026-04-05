@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
 from complexes import ChainComplex
+from braid import BraidElem
 
-class FormalMorphism:
+class FormalMorphism: #tk: extend to matrix category
     def __init__(self, source, target, name, zero=False):
         self.source = source
         self.target = target
@@ -80,6 +81,87 @@ class BottSamelson:
     def __len__(self):
         return len(self.sequence)
 
+    def __hash__(self):
+        return hash((self.n, self.sequence))
+
+class FormalDirectSum:
+    def __init__(self, data, n=None):
+        '''
+        given a dictionary with nonnegative integer
+        coefficients as values and Bott-Samelsons as
+        keys, provides a formal direct sum object
+        '''
+        if n is None:
+            n = next(iter(data)).n if data else 0
+        self.data = dict()
+        self.n = n
+
+        for key, val in data.items():
+            if not isinstance(key, BottSamelson):
+                raise TypeError(f'key {key} not of type BottSamelson')
+            if not isinstance(val, int) or val < 0:
+                raise ValueError(f'value {val} not a nonnegative integer')
+            if key.n != self.n:
+                raise ValueError(f"all Bott-Samelson objects must have the same n, but {key} has n={key.n} and expected n={self.n}")
+            self.data[key] = val
+
+        self._prune()
+
+    def _prune(self):
+        self.data = {key: val for key, val in self.data.items() if val != 0}
+
+    @classmethod
+    def zero(cls, n):
+        return cls({}, n)
+
+    def is_zero(self):
+        return not self.data
+
+    def __repr__(self):
+        return f"FormalDirectSum(n={self.n}, data={self.data})"
+
+    def __str__(self):
+        if self.is_zero():
+            return "0"
+        summands = []
+        for key, val in self.data.items():
+            if val == 1:
+                summands.append(str(key))
+            else:
+                summands.append(f"{val}⬝{key}")
+        return " ⊕ ".join(summands)
+
+    def __add__(self, other):
+        if not isinstance(other, FormalDirectSum):
+            return NotImplemented
+        if self.n != other.n:
+            raise ValueError("Direct sums have incompatible n")
+        out = dict(self.data)
+        for key, val in other.data.items():
+            out[key] = out.get(key, 0) + val
+        return FormalDirectSum(out, self.n)
+
+    def tensor(self, other):
+        if isinstance(other, BottSamelson):
+            other = FormalDirectSum.from_bs(other)
+        if not isinstance(other, FormalDirectSum):
+            raise TypeError(f"{other} must be FormalDirectSum or BottSamelson")
+        if self.n != other.n:
+            raise ValueError("Direct sums have incompatible n")
+
+        out = {}
+        for left, a in self.data.items():
+            for right, b in other.data.items():
+                prod = left @ right
+                out[prod] = out.get(prod, 0) + a * b
+        return FormalDirectSum(out, self.n)
+
+    def __matmul__(self, other):
+        return self.tensor(other)
+
+    @classmethod
+    def from_bs(cls, bs):
+        return cls({bs: 1}, bs.n)
 
 def crossing_complex(i,n,sign):
     '''
@@ -92,8 +174,8 @@ def crossing_complex(i,n,sign):
         raise ValueError(f"{i} not in range {{1,...,n-1}}")
     if sign not in {1,-1}:
         raise ValueError(f"sign {sign} is invalid")
-    Bi = BottSamelson.simple(n, i)
-    Id = BottSamelson.identity(n)
+    Bi = FormalDirectSum.from_bs(BottSamelson.simple(n, i))
+    Id = FormalDirectSum.from_bs(BottSamelson.identity(n))
     d = FormalMorphism(Bi, Id, f"u_{i}")
     dd = FormalMorphism(Id, Bi, f"v_{i}")
 
@@ -102,8 +184,12 @@ def crossing_complex(i,n,sign):
     if sign == 1:
         return ChainComplex(objects={-1: Id, 0: Bi},differentials={-1: dd})
 
+
 def positive_crossing_complex(i,n):
     return crossing_complex(i,n,1)
 
 def negative_crossing_complex(i,n):
     return crossing_complex(i,n,-1)
+
+def rouquier_complex(braid, n): #tk: do so after implementing ⊗, after ⊕/matrix morphisms
+    NotImplemented
