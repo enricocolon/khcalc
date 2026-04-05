@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 
-from linalg import LinearMap
-from graded import GradedFreeModule
-
 class ChainComplex:
     def __init__(self, objects=None, differentials=None):
         if objects is None:
@@ -21,17 +18,14 @@ class ChainComplex:
         for key, val in self.objects.items():
             if not isinstance(key, int):
                 raise TypeError(f"Object keys must be integers, got {key}")
-            if not isinstance(val, GradedFreeModule):
-                raise TypeError(f"Object {key}: {val} must be a GradedFreeModule")
 
     def _validate_differentials(self):
         for key, val in self.differentials.items():
             if not isinstance(key, int):
                 raise TypeError(f"Differential keys must be integers, got {key}")
 
-            if not isinstance(val, LinearMap):
-                raise TypeError(f"Differential {key}: {val} must be a LinearMap")
-
+            if not hasattr(val, "source") or not hasattr(val, "target"):
+                raise TypeError(f"Differential {key}: {val} must have a source and target")
 
             if key not in self.objects:
                 raise ValueError(f"Differential {key} has no source object")
@@ -40,11 +34,11 @@ class ChainComplex:
                 raise ValueError(f"Differential {key} has no target object")
 
 
-            if val.source is not self.objects[key].module:
-                raise ValueError(f"Differential {key} has source {val.source}, expected {self.objects[key].module}")
+            if val.source is not self.objects[key]:
+                raise ValueError(f"Differential {key} has source {val.source}, expected {self.objects[key]}")
 
-            if val.target is not self.objects[key+1].module:
-                raise ValueError(f"Differential {key} has target {val.target}, expected {self.objects[key+1].module}")
+            if val.target is not self.objects[key+1]:
+                raise ValueError(f"Differential {key} has target {val.target}, expected {self.objects[key+1]}")
 
     def _validate_complex(self):
         for i in self.differentials:
