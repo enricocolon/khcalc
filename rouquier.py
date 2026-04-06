@@ -4,18 +4,28 @@ from complexes import ChainComplex
 from braid import BraidElem
 
 class FormalMorphism: #tk: extend to matrix category
-    def __init__(self, source, target, name, zero=False):
+    def __init__(self, source, target, terms=None):
         self.source = source
         self.target = target
-        self.name = name
-        self._zero = zero
+        self.terms = tuple(terms) if terms is not None else tuple()
 
     @classmethod
     def zero(cls, source, target):
-        return cls(source, target, "0", zero=True)
+        return cls(source, target, ())
+
+    @classmethod
+    def named(cls, source, target, name):
+        return cls(source, target, (name,))
 
     def is_zero(self):
-        return self._zero
+        return len(self.terms) == 0
+
+    def __add__(self, other):
+            if not isinstance(other, FormalMorphism):
+                return NotImplemented
+            if self.source != other.source or self.target != other.target:
+                raise ValueError("Can only add morphisms with same source and target")
+            return FormalMorphism(self.source, self.target, self.terms + other.terms)
 
     def __matmul__(self, other):
         if not isinstance(other, FormalMorphism):
@@ -24,10 +34,17 @@ class FormalMorphism: #tk: extend to matrix category
             raise ValueError("Morphisms are not composable")
         if self.is_zero() or other.is_zero():
             return FormalMorphism.zero(other.source, self.target)
-        return FormalMorphism(other.source, self.target, f"{self.name}∘{other.name}")
+        out = []
+        for a in self.terms:
+            for b in other.terms:
+                out.append(f"{a}∘{b}")
+        return FormalMorphism(other.source, self.target, tuple(out))
+
 
     def __repr__(self):
-        return self.name
+        if self.is_zero():
+            return "0"
+        return " + ".join(self.terms)
 
 class BottSamelson:
     def __init__(self, n, sequence):
@@ -163,6 +180,145 @@ class FormalDirectSum:
     def from_bs(cls, bs):
         return cls({bs: 1}, bs.n)
 
+    def expanded_summands(self):
+        out = []
+        for key, val in self.data.items():
+            out.extend([key]*val)
+        return tuple(out)
+
+    def __eq__(self, other):
+        return isinstance(other,FormalDirectSum) and self.n==other.n and self.data==other.data
+
+
+class FormalMatrixMorphism:
+    def __init__(self, source, target, entries=None):
+        '''
+        A matrix of FormalMorphisms from source to target.
+        source, target: FormalMorphism
+        entries: dict[(row,col)]= FormalMorphism
+        '''
+        if not isinstance(source, FormalDirectSum):
+            raise TypeError(f"{source} must be of type FormalDirectSum")
+        if not isinstance(target, FormalDirectSum):
+            raise TypeError(f"{target} must be of type FormalDirectSum")
+        if source.n != target.n:
+            raise ValueError(f"source and target have incompatible n: {self.source.n} vs {self.target.n}")
+        self.source = source
+        self.target = target
+        self.n = self.source.n
+        self.rows = self.target.expanded_summands()
+        self.cols = self.source.expanded_summands()
+        if entries is None:
+            entries = dict()
+        self.entries = dict()
+        for key, val in entries.items():
+            if not (isinstance(key,tuple) or len(key) == 2):
+                raise ValueError(f"key {key} must be a tuple of (colIndex, rowIndex)")
+            i, j = key
+            if not isinstance(i,int) or not isinstance(j, int):
+                raise ValueError(f"key {key} must be a tuple of integers (colIndex, rowIndex)")
+            if i < 0 or i>=len(self.rows):
+                raise ValueError(f"row index {i} out of range for source with {len(self.rows)} summands")
+            if j < 0 or j>=len(self.cols):
+                raise ValueError(f"column index {j} out of range for target with {len(self.cols)} summands")
+            if not isinstance(val, FormalMorphism):
+                raise TypeError(f"value {val} must be of type FormalMorphism")
+            if val.source != self.cols[j]:
+                raise ValueError(f"entry {key} has source {val.source}, expected {self.cols[j]}")
+            if val.target != self.rows[i]:
+                raise ValueError(f"entry {key} has target {val.target}, expected {self.rows[i]}")
+            if not val.is_zero():
+                curr = self.entries.get((i,j),FormalMorphism.zero(self.cols[j], self.rows[i]))
+                self.entries[(i,j)] = curr + val
+
+        self._prune()
+
+    def _prune(self):
+        self.entries = {key: val for key, val in self.entries.items() if not val.is_zero()}
+
+    @classmethod
+    def zero(cls, source, target):
+        return cls(source, target, dict())
+
+    @classmethod
+    def identity(cls, obj):
+        if not isinstance(obj, FormalDirectSum):
+            raise TypeError(f'{obj} must be of type FormalDirectSum')
+
+        summands = obj.expanded_summands()
+        entries = dict()
+
+        for i, summand in enumerate(summands):
+            entries[(i,i)] = FormalMorphism(summand, summand, f"id_{summand}")
+
+        return cls(obj, obj, entries)
+
+    def is_zero(self):
+        return not self.entries
+
+    def copy(self):
+        return FormalMatrixMorphism(self.source, self.target, dict(self.entries))
+
+    def __add__(self, other):
+        if not isinstance(other, FormalMatrixMorphism):
+            return NotImplemented
+        if self.source != other.source or self.target != other.target:
+            raise ValueError("Source and target of matrix morphisms must match for addition")
+
+        out = dict(self.entries)
+
+        rows = self.source.expanded_summands()
+        cols = self.target.expanded_summands()
+
+        for key, val in other.entries.items():
+            i,j = key
+            existing = out.get(key, FormalMorphism.zero(rows[j],cols[i]))
+            out[key] = existing + val
+
+        return FormalMatrixMorphism(self.source, self.target, out)
+
+    def __neg__(self):
+        neg_entries = dict()
+        for key, val in self.entries.items():
+            if val.is_zero():
+                continue
+            neg_terms = tuple("-" + t for t in val.terms)
+            neg_entries[key] = FormalMorphism(val.source, val.target, neg_terms)
+        return FormalMatrixMorphism(self.source, self.target, neg_entries)
+
+    def __sub__(self, other):
+        return self + (-other)
+
+    def __matmul__(self, other):
+        if not isinstance(other, FormalMatrixMorphism):
+            return NotImplemented
+        if other.target != self.source:
+            raise ValueError("Incompatible source/target for composition")
+        out = dict()
+        rows = other.source.expanded_summands()
+        cols = self.target.expanded_summands()
+
+        for (i,k), val1 in self.entries.items():
+            for (j,i2), val2 in other.entries.items():
+                if i != i2:
+                    continue
+                existing = out.get((j,k), FormalMorphism.zero(rows[j], cols[k]))
+                out[(j,k)] = existing + (val1 @ val2)
+
+        return FormalMatrixMorphism(other.source, self.target, out)
+
+    def __repr__(self):
+        return f"FormalMatrixMorphism(source={self.source}, target={self.target}, entries={self.entries})"
+
+    def __str__(self):
+        if self.is_zero():
+            return "0"
+        pieces = []
+        for (i,j), val in self.entries.items():
+            pieces.append(f"({val})[{i},{j}]")
+        return "\n".join(pieces)
+
+
 def crossing_complex(i,n,sign):
     '''
     returns the rouquier complex associated to a
@@ -183,6 +339,8 @@ def crossing_complex(i,n,sign):
         return ChainComplex(objects={0: Bi, 1: Id},differentials={0: d})
     if sign == 1:
         return ChainComplex(objects={-1: Id, 0: Bi},differentials={-1: dd})
+
+
 
 
 def positive_crossing_complex(i,n):
