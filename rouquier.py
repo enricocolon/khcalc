@@ -320,6 +320,16 @@ class FormalMatrixMorphism:
             pieces.append(f"({val})[{i},{j}]")
         return "\n".join(pieces)
 
+    @classmethod
+    def from_morphism(cls, morphism):
+        '''
+        given a morphism return the corresp 1x1 matrix morphism
+        '''
+        source = morphism.source
+        target = morphism.target
+        terms = morphism.terms
+        return FormalMatrixMorphism(source, target, {(0,0): FormalMorphism(source, target, terms)})
+
 
 def crossing_complex(i,n,sign):
     '''
@@ -383,15 +393,17 @@ def tensor_complexes(c1, c2):
 
                     for (i,j), f in d1.entries.items():
                         key = (i,j)
+                        matf = FormalMatrixMorphism.from_morphism(f)
                         if key in entries:
-                            entries[key] += f @ FormalMorphism.identity(c2.objects[b])
+                            entries[key] += matf @ FormalMorphism.identity(c2.objects[b])
                         else:
-                            entries[key] = f @ FormalMorphism.identity(c2.objects[b])
+                            entries[key] = matf @ FormalMorphism.identity(c2.objects[b])
                 #d_c2
                 if b in c2.differentials:
                     d2 = c2.differentials[b]
 
                     for (i,j), f in d2.entries.items():
+                        matf = FormalMatrixMorphism.from_morphism(f)
                         if a % 2:
                             signed = FormalMorphism.identity(c1.objects[a])@FormalMorphism(d2.source, d2.target, tuple("-"+t for t in f.terms))
                         else:
