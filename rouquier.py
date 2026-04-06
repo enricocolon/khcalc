@@ -40,6 +40,8 @@ class FormalMorphism: #tk: extend to matrix category
                 out.append(f"{a}∘{b}")
         return FormalMorphism(other.source, self.target, tuple(out))
 
+    #TK: tensor product. mixing that up with composition.
+
 
     def __repr__(self):
         if self.is_zero():
@@ -332,15 +334,77 @@ def crossing_complex(i,n,sign):
         raise ValueError(f"sign {sign} is invalid")
     Bi = FormalDirectSum.from_bs(BottSamelson.simple(n, i))
     Id = FormalDirectSum.from_bs(BottSamelson.identity(n))
-    d = FormalMorphism(Bi, Id, f"u_{i}")
-    dd = FormalMorphism(Id, Bi, f"v_{i}")
 
+    bs_i = Bi.expanded_summands()[0]
+    bs_id = Id.expanded_summands()[0]
     if sign == -1:
+        d = FormalMatrixMorphism(Bi,Id,{(0,0):FormalMorphism.named(bs_i,bs_id, f"u_{i}")})
         return ChainComplex(objects={0: Bi, 1: Id},differentials={0: d})
     if sign == 1:
-        return ChainComplex(objects={-1: Id, 0: Bi},differentials={-1: dd})
+        d = FormalMatrixMorphism(Id,Bi,{(0,0):FormalMorphism.named(bs_id,bs_i, f"v_{i}")})
+        return ChainComplex(objects={-1: Id, 0: Bi},differentials={-1: d})
 
+def tensor_complexes(c1, c2):
+    '''
+    tensor product of complexes of ⊕BS's.
+    '''
+    degs1 = c1.degrees()
+    degs2 = c2.degrees()
 
+    obs = dict()
+    diffls = dict()
+
+    for a in degs1:
+        for b in degs2:
+            k = a+b
+            summand = c1.objects[a]@c2.objects[b]
+
+            if k in obs:
+                obs[k] += summand
+            else:
+                obs[k] = summand
+
+    for k in sorted(obs.keys()):
+        if k+1 not in obs:
+            continue
+        source = obs[k]
+        target = obs[k+1]
+        entries = {}
+        for a in degs1:
+            for b in degs2:
+                if a+b!=k:
+                    continue
+                source_summand = c1.objects[a]@c2.objects[b]
+                source_length = len(source_summand.expanded_summands())
+
+                #d_c1
+                if a in c1.differentials:
+                    d1 = c1.differentials[a]
+
+                    for (i,j), f in d1.entries.items():
+                        key = (i,j)
+                        if key in entries:
+                            entries[key] += f @ FormalMorphism.identity(c2.objects[b])
+                        else:
+                            entries[key] = f @ FormalMorphism.identity(c2.objects[b])
+                #d_c2
+                if b in c2.differentials:
+                    d2 = c2.differentials[b]
+
+                    for (i,j), f in d2.entries.items():
+                        if a % 2:
+                            signed = FormalMorphism.identity(c1.objects[a])@FormalMorphism(d2.source, d2.target, tuple("-"+t for t in f.terms))
+                        else:
+                            signed = FormalMorphism.identity(c1.objects[a])@f
+
+                        key = (i+source_length, j+source_length)
+                        if key in entries:
+                            entries[key] += signed
+                        else:
+                            entries[key] = signed
+
+        diffls[k] = FormalMatrixMorphism(source, target, entries)
+    return ChainComplex(objects=obs, differentials=diffls)
 
 
 def positive_crossing_complex(i,n):

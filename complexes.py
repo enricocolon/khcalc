@@ -58,3 +58,14 @@ class ChainComplex:
 
     def __repr__(self):
         return f"ChainComplex(degrees={self.degrees()})"
+
+    def __str__(self):
+        lines = []
+        for i in self.degrees():
+            obj = self.objects[i]
+            diff = self.differentials.get(i, None)
+            if diff is not None:
+                lines.append(f"{i}: {obj} --{diff}-->")
+            else:
+                lines.append(f"{i}: {obj}")
+        return "\n".join(lines)
