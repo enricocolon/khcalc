@@ -213,4 +213,239 @@ class MorphismMatrix:
     '''
 
     def __init__(self, source, target, entries=None):
-        pass
+        if not isinstance(source, DirectSum):
+            raise TypeError("source must be a DirectSum")
+
+        if not isinstance(target, DirectSum):
+            raise TypeError("target must be a DirectSum")
+
+        if entries is None:
+            entries = {}
+
+        if not isinstance(entries, dict):
+            raise TypeError("entries must be a dictionary")
+
+        self.source = source
+        self.target = target
+        self.entries = dict(entries)
+
+        self._validate_entries()
+
+    def _validate_entries(self):
+        for position, morphism in self.entries.items():
+            if (
+                not isinstance(position, tuple)
+                or len(position) != 2
+            ):
+                raise TypeError(
+                    "matrix positions must be "
+                    "(row, column) tuples"
+                )
+
+            row, column = position
+
+            if type(row) is not int:
+                raise TypeError(
+                    "row indices must be integers"
+                )
+
+            if type(column) is not int:
+                raise TypeError(
+                    "column indices must be integers"
+                )
+
+            if not 0 <= row < len(self.target):
+                raise IndexError(
+                    f"row index {row} is out of range"
+                )
+
+            if not 0 <= column < len(self.source):
+                raise IndexError(
+                    f"column index {column} is out of range"
+                )
+
+            for attribute in (
+                "source",
+                "target",
+                "q_degree",
+                "is_zero",
+            ):
+                if not hasattr(morphism, attribute):
+                    raise TypeError(
+                        "matrix entries must provide "
+                        f"{attribute!r}"
+                    )
+
+            source_summand = self.source[column]
+            target_summand = self.target[row]
+
+            if morphism.source != source_summand.value:
+                raise ValueError(
+                    f"entry {(row, column)} has "
+                    "the wrong source"
+                )
+
+            if morphism.target != target_summand.value:
+                raise ValueError(
+                    f"entry {(row, column)} has "
+                    "the wrong target"
+                )
+
+            expected_degree = (
+                target_summand.q_shift
+                - source_summand.q_shift
+            )
+
+            if morphism.q_degree != expected_degree:
+                raise ValueError(
+                    f"entry {(row, column)} has "
+                    f"quantum degree {morphism.q_degree}; "
+                    f"expected {expected_degree}"
+                )
+
+    @property
+    def shape(self):
+        return (len(self.target), len(self.source))
+
+    @property
+    def is_zero(self):
+        return all(
+            morphism.is_zero
+            for morphism in self.entries.values()
+        )
+
+    def __getitem__(self, position):
+        if (
+            not isinstance(position, tuple)
+            or len(position) != 2
+        ):
+            raise TypeError(
+                "matrix position must be (row, column)"
+            )
+
+        row, column = position
+
+        if type(row) is not int or type(column) is not int:
+            raise TypeError(
+                "matrix indices must be integers"
+            )
+
+        if not 0 <= row < len(self.target):
+            raise IndexError(
+                f"row index {row} is out of range"
+            )
+
+        if not 0 <= column < len(self.source):
+            raise IndexError(
+                f"column index {column} is out of range"
+            )
+
+        return self.entries.get((row, column))
+
+    def __repr__(self):
+        return (
+            f"MorphismMatrix("
+            f"source={self.source!r}, "
+            f"target={self.target!r}, "
+            f"entries={self.entries!r})"
+        )
+
+
+    def __eq__(self, other):
+        if not isinstance(other, MorphismMatrix):
+            return NotImplemented
+
+        return (
+            self.source,
+            self.target,
+            self.entries,
+        ) == (
+            other.source,
+            other.target,
+            other.entries,
+        )
+
+
+class ChainComplex:
+    '''
+    WARNING: DIFFERENTIAL IS NOT VALIDATED
+    '''
+    def __init__(self, terms=None, differentials=None):
+        if terms is None:
+            terms = dict()
+
+        if differentials is None:
+            differentials = dict()
+
+        if not isinstance(terms, dict):
+            raise TypeError("terms must be a dictionary")
+
+        if not isinstance(differentials, dict):
+            raise TypeError("differentials must be a dictionary")
+
+        for deg, term in terms.items():
+            if type(deg) is not int:
+                raise TypeError("homological degrees must be integers")
+
+            if not isinstance(term, DirectSum):
+                raise TypeError("chain terms must be DirectSum objects")
+
+        for deg, differential in differentials.items():
+            if type(deg) is not int:
+                raise TypeError("differential degrees must be integers")
+
+            if not isinstance(differential, MorphismMatrix):
+                raise TypeError("differentials must be MorphismMatrix objects")
+
+            if deg not in terms:
+                raise ValueError(f"d^{deg} missing source term")
+
+            if deg + 1 not in terms:
+                raise ValueError(f"d^{deg} missing target term")
+
+            if differential.source != terms[deg]:
+                raise ValueError(f"d^{deg} has wrong source, expected {terms[deg]!r}, got {differential.source!r}")
+
+            if differential.target != terms[deg + 1]:
+                raise ValueError(f"d^{deg} has wrong target, expected {terms[deg+1]!r}, got {differential.target!r}")
+
+        self.terms = dict(terms)
+        self.differentials = dict(differentials)
+
+    @property
+    def degrees(self):
+        return tuple(sorted(self.terms))
+
+    @property
+    def min_degree(self):
+        return min(self.terms) if self.terms else None
+
+    @property
+    def max_degree(self):
+        return max(self.terms) if self.terms else None
+
+    @property
+    def is_zero(self):
+        return all(term.is_zero for term in self.terms.values())
+
+    def term(self, degree):
+        return self.terms.get(degree)
+
+    def differential(self, degree):
+        return self.differentials.get(degree)
+
+    def __eq__(self, other):
+        if not isinstance(other, ChainComplex):
+            return NotImplemented
+
+        return (
+            self.terms,
+            self.differentials
+        ) == (
+            other.terms,
+            other.differentials
+        )
+
+    def __repr__(self):
+        return (f"ChainComplex(terms={self.terms!r}," +
+                f"differentials={self.differentials!r})")
