@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from .uq import UWord
+from .uq import UWord, UTwoMorphism, IdentityU2, ZeroU2
 
 class Shifted:
     """
@@ -364,6 +364,110 @@ class MorphismMatrix:
             other.target,
             other.entries,
         )
+
+
+
+    @classmethod
+    def zero(cls, source, target):
+        return cls(source, target, entries={})
+
+    @classmethod
+    def identity(cls, obj):
+        entries = {}
+
+        for i, summand in enumerate(obj):
+            entries[(i,i)] = UTwoMorphism(
+                source = summand.value,
+                target = summand.value,
+                expression = IdentityU2(),
+                q_degree=0,)
+
+        return cls(obj, obj, entries)
+
+    def __add__(self, other):
+        if not isinstance(other, MorphismMatrix):
+            return NotImplemented
+
+        if self.source != other.source:
+            raise ValueError("matrices must have same source")
+
+        if self.target != other.target:
+            raise ValueError("matrices must have same target")
+
+        entries = {}
+
+        positions = set(self.entries).union(set(other.entries))
+
+        for position in positions:
+            left  = self.entries.get(position) #NOTE CONVENTION
+            right = other.entries.get(position)
+
+            if left is None:
+                value = right
+            elif right is None:
+                value = left
+            else:
+                value = left + right
+
+            if value is not None and not value.is_zero:
+                entries[position] = value
+
+        return MorphismMatrix(self.source, self.target, entries)
+
+
+    def __neg__(self):
+        entries = {position: -morphism for position, morphism in self.entries.items() if not morphism.is_zero}
+        return MorphismMatrix(self.source, self.target, entries)
+
+
+    def __sub__(self, other):
+        if not isinstance(other, MorphismMatrix):
+            return NotImplemented
+
+        return self + (-other)
+    
+    def then(self, other):
+        '''
+        Input: self, other compatible morphism matrices
+
+        Return: the composition other(self), i.e. other∘self
+        '''
+        if not isinstance(other, MorphismMatrix):
+            raise TypeError("other must be a MorphismMatrix")
+
+        if self.target != other.source:
+            raise ValueError("matrices are not compatible")
+
+        entries = {}
+
+        for i in range(len(other.target)):
+            for j in range(len(self.source)):
+                total = None
+
+                for k in range(len(self.target)):
+                    left = self.entries.get((k,j))
+                    right = other.entries.get((i,k))
+
+                    if left is None or right is None:
+                        continue
+
+                    composition = left.then(right)
+
+                    if composition is None or composition.is_zero:
+                        continue
+
+                    if total is None:
+                        total = composition
+                    else:
+                        total += composition
+
+                if total is not None and not total.is_zero:
+                    entries[(i,j)] = total
+
+        return MorphismMatrix(self.source, other.target, entries)
+
+
+
 
 
 class ChainComplex:
