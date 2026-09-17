@@ -2,7 +2,8 @@
 
 from .boundary import WebBoundary
 from .uq import DividedPower, UWord, UTwoMorphism, RickardU2
-from .complex import ShiftedUWord, UDirectSum, MorphismMatrix, ChainComplex
+from .complex import MorphismMatrix, ChainComplex
+from .uq_complex import ShiftedUWord, UDirectSum
 
 def make_rickard_term(a, i, lam_i, s):
     if lam_i <= 0:

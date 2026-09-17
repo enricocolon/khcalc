@@ -97,26 +97,22 @@ class UWord:
         if any(not isinstance(factor, DividedPower) for factor in factors):
             raise TypeError("all factors must be DividedPower objects")
 
-        self.source = source
-        self.factors = factors
-        self.target = self._compute_target()
+        curr = source
 
-    def _compute_target(self):
-        curr = self.source
-
-        for factor in self.factors:
+        for factor in factors:
             if factor.source != curr:
-                raise ValueError(
-                        f"Composition error: expected source {curr}, "
-                        f"got {factor.source}"
-                    )
+                raise ValueError(f"Composition error, expected source {curr}, got {factor.source}")
 
             if factor.is_zero:
-                return None
+                curr = None
+                break
 
             curr = factor.target
 
-        return curr
+        self.source = source
+        self.factors = tuple(factor for factor in factors if factor.r != 0)
+        self.target = curr
+
 
     @property
     def is_zero(self):
@@ -126,24 +122,33 @@ class UWord:
     def is_identity(self):
         return not self.is_zero and len(self.factors) == 0
 
-    def then(self, factor):
+    def then_factor(self, factor):
         '''
         Append a factor to the end of the word.
         '''
         if not isinstance(factor, DividedPower):
             raise TypeError("factor must be a DividedPower")
 
+        if self.is_zero:
+            raise ValueError("cannot append factor to a zero word")
+
+        if self.target != factor.source:
+            raise ValueError("Self target and factor source do not match")
+
         return UWord(source = self.source,
                      factors = self.factors + (factor,),)
 
-    def then_word(self, other):
+    def then(self, other):
         if not isinstance(other, UWord):
             raise TypeError("other must be a UWord")
+
+        if self.is_zero or other.is_zero:
+            raise NotImplementedError
 
         if self.target != other.source:
             raise ValueError("UWords not compatible")
 
-        return UWord(self.source, self.factors+other.factors,)
+        return UWord(self.source, (self.factors+other.factors),)
 
     def __len__(self):
         return len(self.factors)
@@ -651,11 +656,11 @@ class UTwoMorphism:
                 "other must be a UTwoMorphism"
             )
 
-        source = self.source.then_word(
+        source = self.source.then(
             other.source
         )
 
-        target = self.target.then_word(
+        target = self.target.then(
             other.target
         )
 

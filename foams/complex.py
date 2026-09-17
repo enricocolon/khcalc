@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-from .uq import UWord, UTwoMorphism, IdentityU2, ZeroU2
-
 class Shifted:
     """
     A formal quantum grading shift q^k(value).
@@ -13,6 +11,7 @@ class Shifted:
 
     and may optionally provide:
         is_identity
+        then
     """
 
     def __init__(self, value, q_shift=0):
@@ -50,6 +49,23 @@ class Shifted:
             self.q_shift == 0
             and getattr(self.value, "is_identity", False)
         )
+
+    def then(self, other):
+        if not isinstance(other, Shifted):
+            raise TypeError("other must be a Shifted object")
+        if type(self) is not type(other):
+            raise TypeError("Shifted objects must be of same type")
+        if self.target != other.source:
+            raise ValueError("incompatible Shifted objects")
+        if not hasattr(self.value, "then"):
+            raise TypeError(f"value {self.value} does not provide then()")
+
+
+
+        value = self.value.then(other.value)
+        q_shift = self.q_shift + other.q_shift
+
+        return type(self)(value, q_shift)
 
     def __str__(self):
         if self.q_shift == 0:
@@ -170,39 +186,36 @@ class DirectSum:
     def __hash__(self):
         return hash(self.summands)
 
-
-
-class ShiftedUWord(Shifted):
-    def __init__(self, word, q_shift=0):
-        if not isinstance(word, UWord):
-            raise TypeError("word must be a UWord")
-
-        super().__init__(word, q_shift=q_shift)
-
-    @property
-    def word(self):
-        return self.value
-
-    def __repr__(self):
-        return (
-            f"ShiftedUWord({self.word!r}, "
-            f"q_shift={self.q_shift!r})"
-        )
-
-
-class UDirectSum(DirectSum):
-    def __init__(self, summands=()):
-        summands = tuple(summands)
-
-        if any(
-            not isinstance(summand, ShiftedUWord)
-            for summand in summands
-        ):
+    def then(self, other):
+        if not isinstance(other, DirectSum):
             raise TypeError(
-                "all summands must be ShiftedUWord objects"
+                "other must be a DirectSum"
             )
 
-        super().__init__(summands)
+        if type(self) is not type(other):
+            raise TypeError(
+                "DirectSums must be of the same type"
+            )
+
+        if len(self) == 0 or len(other) == 0:
+            return type(self)()
+
+        if any(summand.is_zero for summand in self):
+            raise NotImplementedError("composition with explicit zero summands not yet supported")
+
+        if any(summand.is_zero for summand in other):
+            raise NotImplementedError("composition with explicit zero summands not yet supported")
+
+        if self.target != other.source:
+            raise ValueError("incompatible DirectSums")
+
+        summands = []
+
+        for left in self:
+            for right in other:
+                summands.append(left.then(right))
+
+        return type(self)(summands)
 
 
 class MorphismMatrix:
@@ -371,19 +384,6 @@ class MorphismMatrix:
     def zero(cls, source, target):
         return cls(source, target, entries={})
 
-    @classmethod
-    def identity(cls, obj):
-        entries = {}
-
-        for i, summand in enumerate(obj):
-            entries[(i,i)] = UTwoMorphism(
-                source = summand.value,
-                target = summand.value,
-                expression = IdentityU2(),
-                q_degree=0,)
-
-        return cls(obj, obj, entries)
-
     def __add__(self, other):
         if not isinstance(other, MorphismMatrix):
             return NotImplemented
@@ -466,8 +466,25 @@ class MorphismMatrix:
 
         return MorphismMatrix(self.source, other.target, entries)
 
+    def horizontal(self, other):
+        if not isinstance(other, MorphismMatrix):
+            raise TypeError("other must be a MorphismMatrix")
 
+        source = self.source.then(other.source)
+        target = self.target.then(other.target)
+        entries = {}
+        num_other_source = len(other.source)
+        num_other_target = len(other.target)
+        for (r1,c1), left in self.entries.items():
+            for (r2,c2), right in other.entries.items():
+                morphism = left.horizontal(right)
+                if morphism.is_zero:
+                    continue
+                row = (r1*num_other_target+r2)
+                col = (c1*num_other_source+c2)
+                entries[(row,col)] = morphism
 
+        return MorphismMatrix(source, target, entries)
 
 
 class ChainComplex:
