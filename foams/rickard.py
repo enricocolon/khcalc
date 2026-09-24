@@ -3,7 +3,7 @@
 from .boundary import WebBoundary
 from .uq import DividedPower, UWord, UTwoMorphism, RickardU2
 from .complex import MorphismMatrix, ChainComplex
-from .uq_complex import ShiftedUWord, UDirectSum
+from .uq_complex import ShiftedUWord, UDirectSum, u_identity_matrix, u_identity_complex
 
 def make_rickard_term(a, i, lam_i, s):
     if lam_i <= 0:
@@ -82,3 +82,19 @@ def positive_rickard(n,a,i):
         prev_word = word
 
     return ChainComplex(terms=C, differentials=d)
+
+
+def positive_braid_u_complex(n, boundary, braid_word):
+    boundary.require_admissible(n)
+
+    result = u_identity_complex(boundary)
+    curr = boundary
+
+    for i in braid_word:
+        crossing = positive_rickard(n,curr,i)
+
+        result = result.then(crossing,u_identity_matrix)
+
+        curr = curr.s(i)
+
+    return result

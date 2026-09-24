@@ -156,6 +156,7 @@ class DirectSum:
             and self.summands[0].is_identity
         )
 
+
     def __len__(self):
         return len(self.summands)
 
@@ -216,6 +217,15 @@ class DirectSum:
                 summands.append(left.then(right))
 
         return type(self)(summands)
+
+    def __add__(self, other):
+        if not isinstance(other, DirectSum):
+            return NotImplemented
+
+        if type(self) is not type(other):
+            raise TypeErrors("DirectSums must be of same type")
+
+        return type(self)(self.summands + other.summands)
 
 
 class MorphismMatrix:
@@ -384,6 +394,24 @@ class MorphismMatrix:
     def zero(cls, source, target):
         return cls(source, target, entries={})
 
+    @classmethod
+    def identity(cls, direct_sum, id_entry):
+        '''
+        given DirectSum objects of a common class, and an identity
+        object for that class, construct identity matrices of 1-morphisms
+        '''
+        if not isinstance(direct_sum, DirectSum):
+            raise TypeError("direct_sum must be a DirectSum")
+
+        entries = {}
+
+        for i, summand in enumerate(direct_sum):
+            if not summand.is_zero:
+                entries[(i,i)]=id_entry(summand.value)
+
+        return cls(direct_sum, direct_sum, entries)
+
+
     def __add__(self, other):
         if not isinstance(other, MorphismMatrix):
             return NotImplemented
@@ -487,6 +515,41 @@ class MorphismMatrix:
         return MorphismMatrix(source, target, entries)
 
 
+def _insert_block(entries, block, row_offset, col_offset):
+    '''
+    given MorphismMatrix block and entry dictionary entries, insert block into entries at the given row/col offsets.
+    nonzero entries in block add to any existing entries in entries.
+    '''
+    if not isinstance(entries, dict):
+        raise TypeError("entries must be a dictionary")
+
+    if not isinstance(block, MorphismMatrix):
+        raise TypeError("block must be a MorphismMatrix")
+
+    if type(row_offset) is not int:
+        raise TypeError("row_offset must be an integer")
+
+    if type(col_offset) is not int:
+        raise TypeError("col_offset must be an integer")
+
+    if row_offset < 0:
+        raise ValueError("row_offset must be nonnegative")
+
+    if col_offset < 0:
+        raise ValueError("col_offset must be nonnegative")
+
+    for (row,col), morphism in block.entries.items():
+        position = (row+row_offset, col+col_offset)
+        if position in entries:
+            value = entries[position] + morphism
+        else:
+            value = morphism
+
+        if value.is_zero:
+            entries.pop(position, None)
+        else:
+            entries[position] = value
+
 class ChainComplex:
     '''
     WARNING: DIFFERENTIAL IS NOT VALIDATED
@@ -570,3 +633,74 @@ class ChainComplex:
     def __repr__(self):
         return (f"ChainComplex(terms={self.terms!r}," +
                 f"differentials={self.differentials!r})")
+
+    def then(self, other, identity_matrix):
+        if not isinstance(other, ChainComplex):
+            raise TypeError("other must be a ChainComplex")
+
+        if type(self) is not type(other):
+            raise TypeError("ChainComplexes must be of same type")
+
+        if not callable(identity_matrix):
+            raise TypeError("identity_matrix must be callable")
+
+        if self.is_zero or other.is_zero:
+            return type(self)()
+
+        mindeg = self.min_degree+other.min_degree
+        maxdeg = self.max_degree+other.max_degree
+
+        terms = dict()
+        offsets = dict()
+
+        for k in range(mindeg, maxdeg+1):
+            offsets[k] = dict()
+            for p in range(self.min_degree, self.max_degree+1):
+                q = k - p
+                if p not in self.terms or q not in other.terms:
+                    continue
+                term = self.terms[p].then(other.terms[q])
+                if term.is_zero:
+                    continue
+                if k not in terms:
+                    offset = 0
+                    terms[k] = term
+                else:
+                    offset = len(terms[k])
+                    terms[k] += term
+
+                offsets[k][(p,q)] = offset
+
+
+
+        differentials = dict()
+
+        for k in range(mindeg, maxdeg):
+            if k not in terms or k+1 not in terms:
+                continue
+
+            entries = dict()
+
+            for (p,q), col_offset in offsets[k].items():
+                d_self = self.differentials.get(p) #(p,q)->(p+1,q)
+                target = (p+1, q)
+
+                if (d_self is not None and target in offsets[k+1]):
+                    block = d_self.horizontal(identity_matrix(other.terms[q]))
+
+                    _insert_block(entries,block,offsets[k+1][target],col_offset)
+
+                d_other = other.differentials.get(q) #(p,q)->(p,q+1)
+                target = (p, q+1)
+
+                if (d_other is not None and target in offsets[k+1]):
+                    block = identity_matrix(self.terms[p]).horizontal(d_other)
+
+                    if p % 2:
+                        block = -block
+
+                    _insert_block(entries,block,offsets[k+1][target],col_offset)
+
+            differentials[k] = MorphismMatrix(terms[k],terms[k+1],entries)
+
+        return type(self)(terms, differentials)

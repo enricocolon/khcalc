@@ -204,7 +204,6 @@ class UWord:
 
         return False
 
-
 class IdentityU2:
     def __repr__(self):
         return "IdentityU2()"
@@ -516,6 +515,7 @@ class UTwoMorphism:
     @property
     def is_identity(self):
         return isinstance(self.expression, IdentityU2)
+
 
     def __neg__(self):
         if self.is_zero:

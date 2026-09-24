@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-from .complex import Shifted, DirectSum, MorphismMatrix
+from .boundary import WebBoundary
+from .complex import Shifted, DirectSum, MorphismMatrix, ChainComplex
 from .uq import UWord, UTwoMorphism, IdentityU2, ZeroU2
 
 class ShiftedUWord(Shifted):
@@ -42,11 +43,34 @@ def u_identity_matrix(obj):
     entries = {}
 
     for i, summand in enumerate(obj):
-        entries[(i,i)] = UTwoMorphism(
-            source=summand.word,
-            target=summand.word,
-            expression=IdentityU2(),
-            q_degree=0,
-        )
+        if not summand.is_zero:
+            entries[(i,i)] = UTwoMorphism(
+                source=summand.word,
+                target=summand.word,
+                expression=IdentityU2(),
+                q_degree=0,
+            )
 
     return MorphismMatrix(obj, obj, entries)
+#TK: make non-hardcoded identity constructor
+
+def u_identity_complex(boundary):
+    if not isinstance(boundary, WebBoundary):
+        raise TypeError("boundary must be a WebBoundary")
+
+    identity_word = UWord(
+        source=boundary,
+        factors=(),
+    )
+
+    term = UDirectSum((
+        ShiftedUWord(
+            identity_word,
+            q_shift=0,
+        ),
+    ))
+
+    return ChainComplex(
+        terms={0: term},
+        differentials={},
+    )
