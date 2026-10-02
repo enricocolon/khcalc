@@ -2,7 +2,8 @@
 
 from .boundary import WebBoundary
 from .complex import Shifted, DirectSum, MorphismMatrix, ChainComplex
-from .uq import UWord, UTwoMorphism, IdentityU2, ZeroU2
+from .uq import UWord
+from .u2 import UTwoMorphism, IdentityU2, ZeroU2
 
 class ShiftedUWord(Shifted):
     def __init__(self, word, q_shift=0):

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
 from .boundary import WebBoundary
-from .uq import DividedPower, UWord, UTwoMorphism, RickardU2
+from .uq import DividedPower, UWord
+from .u2 import UTwoMorphism, RickardU2
 from .complex import MorphismMatrix, ChainComplex
 from .uq_complex import ShiftedUWord, UDirectSum, u_identity_matrix, u_identity_complex
 
