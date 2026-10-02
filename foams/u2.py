@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from .uq import UWord
+from .uq import ShiftedUWord
 
 class U2Expression:
     pass
@@ -359,25 +359,166 @@ class CapU2(U2Expression):
         return hash((CapU2, self.gap_index, self.morphism_type))
 
 
-def _validate_dot_u2(source, target, expression):
+def _validate_dot_u2(source, target, expression, q_degree):
+    # source: ShiftedUWord
+    # target: ShiftedUWord
+    # expression: U2Expression
+    # q_degree: integer
+    if not isinstance(expression, DotU2):
+        raise TypeError("expression must be a DotU2")
 
-    pass
+    if expression.strand_index < 0:
+        raise ValueError("strand_index must be nonnegative")
 
-def _validate_crossing_u2(source, target, expression):
-    pass
+    if expression.morphism_type not in {"E", "F"}:
+        raise ValueError(
+            "morphism_type must be 'E' or 'F'"
+        )
 
-def _validate_cup_u2(source, target, expression):
-    pass
 
-def _validate_cap_u2(source, target, expression):
-    pass
+    if expression.strand_index >= len(source.factors):
+        raise ValueError(
+            "strand_index out of range for source ShiftedUWord"
+        )
 
-def _validate_u2_morphism(source, target, expression):
-        if not isinstance(source, UWord):
-            raise TypeError("source must be a UWord")
+    if expression.morphism_type == "E":
+        if source.factors[expression.strand_index].direction != "E": #.direction? or bare factor. direction for now.
+            raise ValueError(
+                "strand_index does not correspond to an E strand in source ShiftedUWord"
+            )
+        if target.factors[expression.strand_index].direction != "E":
+            raise ValueError(
+                "strand_index does not correspond to an E strand in target ShiftedUWord"
+            )
 
-        if not isinstance(target, UWord):
-            raise TypeError("target must be a UWord")
+
+    if expression.morphism_type == "F":
+        if source.factors[expression.strand_index].direction != "F":
+            raise ValueError(
+                "strand_index does not correspond to an F strand in source ShiftedUWord"
+            )
+        if target.factors[expression.strand_index].direction != "F":
+            raise ValueError(
+                "strand_index does not correspond to an F strand in target ShiftedUWord"
+            )
+
+
+    if target.q_shift - source.q_shift != 2:
+        raise ValueError(
+            "q-degree shift for DotU2 on E strand must be +2"
+        )
+
+
+def _validate_crossing_u2(source, target, expression, q_degree):
+    if not isinstance(expression, CrossingU2):
+        raise TypeError("expression must be a CrossingU2")
+
+    if expression.left_strand_index < 0:
+        raise ValueError("left_strand_index must be nonnegative")
+
+    if expression.morphism_type not in {"E", "F"}:
+        raise ValueError(
+            "morphism_type must be 'E' or 'F'"
+        )
+
+    if expression.left_strand_index >= len(source.factors) - 1:
+        raise ValueError(
+            "left_strand_index out of range for source ShiftedUWord"
+        )
+
+    if expression.morphism_type == "E":
+        pass
+
+    if expression.morphism_type == "F":
+        pass
+
+    #implement a degree checker in terms of color
+    degree = target.q_shift - source.q_shift
+
+    if degree == -2:
+        pass
+    elif degree == 1:
+        pass
+    elif degree == 0:
+        pass
+    else:
+        raise ValueError("q-degree shift for CrossingU2 must be -2, 0, or +1")
+
+def _validate_cup_u2(source, target, expression, q_degree):
+    if not isinstance(expression, CupU2):
+        raise TypeError("expression must be a CupU2")
+
+    if expression.gap_index < 0:
+        raise ValueError("gap_index must be nonnegative")
+
+    if expression.morphism_type not in {"EF", "FE"}:
+        raise ValueError(
+            "morphism_type must be 'EF' or 'FE'"
+        )
+
+    #MAKE SURE TO DISAMBIGUATE COLOR, THICKNESS, STRAND INDEX.
+    lam_i = source.source.lam(expression.gap_index) #CHECK THAT THE INDICES MATCH
+
+    if expression.morphism_type == "EF":
+        #check source/target compatibility before q shift
+
+        if target.q_shift - source.q_shift != 1 - lam_i:
+            raise ValueError(
+                "q-degree shift for CupU2 of type EF must be 1 - lam_i"
+            )
+        pass
+
+    if expression.morphism_type == "FE":
+        #check source/target compatibility before q shift
+
+        if target.q_shift - source.q_shift != 1 + lam_i:
+            raise ValueError(
+                "q-degree shift for CupU2 of type FE must be 1 + lam_i"
+            )
+        pass
+
+
+def _validate_cap_u2(source, target, expression, q_degree):
+    if not isinstance(expression, CapU2):
+        raise TypeError("expression must be a CapU2")
+
+    if expression.gap_index < 0:
+        raise ValueError("gap_index must be nonnegative")
+
+    if expression.morphism_type not in {"EF", "FE"}:
+        raise ValueError(
+            "morphism_type must be 'EF' or 'FE'"
+        )
+
+    lam_i = source.source.lam(expression.gap_index) #CHECK THAT THE INDICES MATCH
+
+    if expression.morphism_type == "EF":
+        #check source/target compatibility before q shift
+
+        if target.q_shift - source.q_shift != 1 - lam_i:
+            raise ValueError(
+                "q-degree shift for CapU2 of type EF must be 1 - lam_i"
+            )
+        pass
+
+    if expression.morphism_type == "FE":
+        #check source/target compatibility before q shift
+
+        if target.q_shift - source.q_shift != 1 + lam_i:
+            raise ValueError(
+                "q-degree shift for CapU2 of type FE must be 1 + lam_i"
+            )
+        pass
+
+
+
+
+def _validate_u2_morphism(source, target, expression, q_degree):
+        if not isinstance(source, ShiftedUWord):
+            raise TypeError("source must be a ShiftedUWord")
+
+        if not isinstance(target, ShiftedUWord):
+            raise TypeError("target must be a ShiftedUWord")
 
         if source.source != target.source:
             raise ValueError(
@@ -402,16 +543,16 @@ def _validate_u2_morphism(source, target, expression):
 
         #source/target checking for elementary 2-morphisms
         if isinstance(expression, DotU2):
-            _validate_dot_u2(source, target, expression)
+            _validate_dot_u2(source, target, expression, q_degree)
 
         if isinstance(expression, CrossingU2):
-            _validate_crossing_u2(source, target, expression)
+            _validate_crossing_u2(source, target, expression, q_degree)
 
         if isinstance(expression, CupU2):
-            _validate_cup_u2(source, target, expression)
+            _validate_cup_u2(source, target, expression, q_degree)
 
         if isinstance(expression, CapU2):
-            _validate_cap_u2(source, target, expression)
+            _validate_cap_u2(source, target, expression, q_degree)
 
         pass
 
@@ -424,11 +565,11 @@ class UTwoMorphism:
         expression,
         q_degree=0,
     ):
-        if not isinstance(source, UWord):
-            raise TypeError("source must be a UWord")
+        if not isinstance(source, ShiftedUWord):
+            raise TypeError("source must be a ShiftedUWord")
 
-        if not isinstance(target, UWord):
-            raise TypeError("target must be a UWord")
+        if not isinstance(target, ShiftedUWord):
+            raise TypeError("target must be a ShiftedUWord")
 
         if source.source != target.source:
             raise ValueError(
@@ -460,7 +601,7 @@ class UTwoMorphism:
                 )
 
         #TK:validate source/target for Rickard morphisms
-        _validate_u2_morphism(source, target, expression)
+        _validate_u2_morphism(source, target, expression, q_degree)
 
         self.source = source
         self.target = target

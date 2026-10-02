@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 from .boundary import WebBoundary
-from .uq import DividedPower, UWord
+from .uq import DividedPower, UWord, ShiftedUWord
 from .u2 import UTwoMorphism, RickardU2
 from .complex import MorphismMatrix, ChainComplex
-from .uq_complex import ShiftedUWord, UDirectSum, u_identity_matrix, u_identity_complex
+from .uq_complex import UDirectSum, u_identity_matrix, u_identity_complex
 
 def make_rickard_term(a, i, lam_i, s):
     if lam_i <= 0:

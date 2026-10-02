@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from .boundary import WebBoundary
+from .complex import Shifted
 
 class DividedPower:
     def __init__(self, direction, i, r, source):
@@ -203,3 +204,21 @@ class UWord:
                 return True
 
         return False
+
+
+class ShiftedUWord(Shifted):
+    def __init__(self, word, q_shift=0):
+        if not isinstance(word, UWord):
+            raise TypeError("word must be a UWord")
+
+        super().__init__(word, q_shift=q_shift)
+
+    @property
+    def word(self):
+        return self.value
+
+    def __repr__(self):
+        return (
+            f"ShiftedUWord({self.word!r}, "
+            f"q_shift={self.q_shift!r})"
+        )

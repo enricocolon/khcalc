@@ -1,27 +1,9 @@
 #!/usr/bin/env python3
 
 from .boundary import WebBoundary
-from .complex import Shifted, DirectSum, MorphismMatrix, ChainComplex
-from .uq import UWord
+from .complex import DirectSum, MorphismMatrix, ChainComplex
+from .uq import UWord, ShiftedUWord
 from .u2 import UTwoMorphism, IdentityU2, ZeroU2
-
-class ShiftedUWord(Shifted):
-    def __init__(self, word, q_shift=0):
-        if not isinstance(word, UWord):
-            raise TypeError("word must be a UWord")
-
-        super().__init__(word, q_shift=q_shift)
-
-    @property
-    def word(self):
-        return self.value
-
-    def __repr__(self):
-        return (
-            f"ShiftedUWord({self.word!r}, "
-            f"q_shift={self.q_shift!r})"
-        )
-
 
 class UDirectSum(DirectSum):
     def __init__(self, summands=()):
